@@ -1,0 +1,136 @@
+[project]
+name = "pilmoji-for-parser"
+version = "0.1.0"
+description = "Pilmoji for nonebot-plugin-parser"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+  "emoji>=2.15.0",
+  "httpx>=0.27.2",
+  "pillow>=11.0.0",
+]
+
+[project.urls]
+IssueTracker = "https://github.com/fllesser/pilmoji-for-parser/issues"
+Release = "https://github.com/fllesser/pilmoji-for-parser/releases"
+Repository = "https://github.com/fllesser/pilmoji-for-parser"
+
+[dependency-groups]
+dev = [
+  "ruff>=0.14.3,<1.0.0",
+]
+test = [
+  "poethepoet>=0.37.0",
+  "pytest-asyncio>=1.2.0,<1.3.0",
+  "pytest-cov>=7.0.0",
+  "pytest-xdist>=3.8.0,<4.0.0",
+  "respx>=0.22.0",
+]
+
+[build-system]
+requires = ["uv_build>=0.9.0,<0.10.0"]
+build-backend = "uv_build"
+
+[tool.bumpversion]
+current_version = "0.1.0"
+commit = true
+message = "🔖 release: bump vesion from {current_version} to {new_version}"
+tag = true
+
+[[tool.bumpversion.files]]
+filename = "uv.lock"
+search = "name = \"pilmoji-for-parser\"\nversion = \"{current_version}\""
+replace = "name = \"pilmoji-for-parser\"\nversion = \"{new_version}\""
+
+[tool.coverage.report]
+show_missing = true  # 相当于 --cov-report=term-missing:cite[1]
+exclude_lines = [
+  "raise NotImplementedError",
+  "if TYPE_CHECKING:",
+  "@overload",
+]
+
+[tool.poe.tasks]
+test = "pytest --cov=src --cov-report xml --junitxml=./junit.xml -n auto"
+bump = "bump-my-version bump"
+show-bump = "bump-my-version show-bump"
+
+[tool.pyright]
+pythonVersion = "3.10"
+pythonPlatform = "All"
+defineConstant = { PYDANTIC_V2 = true }
+executionEnvironments = [
+  { root = "./tests", extraPaths = [
+    "./src",
+  ] },
+  { root = "./src" },
+]
+typeCheckingMode = "standard"
+disableBytesTypePromotions = true
+
+[tool.pytest.ini_options]
+addopts = [
+  "-v",  # 详细输出
+  "-s",  # 显示打印信息
+  "--tb=short",  # 简短的错误回溯
+  "-ra",  # 显示所有测试结果摘要
+  "--strict-markers",  # 严格标记模式
+  "--import-mode=prepend",  # 导入模式
+]
+pythonpath = ["src"]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "session"
+
+[tool.ruff]
+line-length = 120
+target-version = "py310"
+
+[tool.ruff.format]
+line-ending = "lf"
+
+[tool.ruff.lint]
+select = [
+  "F",  # Pyflakes
+  "W",  # pycodestyle warnings
+  "E",  # pycodestyle errors
+  "I",  # isort
+  "UP",  # pyupgrade
+  "ASYNC",  # flake8-async
+  "C4",  # flake8-comprehensions
+  "T10",  # flake8-debugger
+  "T20",  # flake8-print
+  "PYI",  # flake8-pyi
+  "PT",  # flake8-pytest-style
+  "Q",  # flake8-quotes
+  "TID",  # flake8-tidy-imports
+  "RUF",  # Ruff-specific rules
+]
+ignore = [
+  "E402",  # module-import-not-at-top-of-file
+  "UP037",  # quoted-annotation
+  "RUF001",  # ambiguous-unicode-character-string
+  "RUF002",  # ambiguous-unicode-character-docstring
+  "RUF003",  # ambiguous-unicode-character-comment
+  "W191",  # indentation contains tabs
+  # "I001",   # isort: imports are incorrectly sorted
+  "TID252",  # 相对导入
+]
+
+[tool.ruff.lint.isort]
+force-sort-within-sections = true
+known-first-party = ["tests/*"]
+extra-standard-library = ["typing_extensions"]
+
+[tool.ruff.lint.flake8-pytest-style]
+fixture-parentheses = false
+mark-parentheses = false
+
+[tool.ruff.lint.pyupgrade]
+keep-runtime-typing = true
+
+[tool.uv]
+required-version = ">=0.9.7"
+default-groups = ["test", "dev"]
+
+[tool.uv.build-backend]
+module-name = "pilmoji"

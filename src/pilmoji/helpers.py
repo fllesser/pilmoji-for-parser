@@ -1,15 +1,11 @@
 from __future__ import annotations
 
-import re
-
 from enum import Enum
+import re
+from typing import TYPE_CHECKING, Final, NamedTuple
 
 import emoji
-
-import PIL
 from PIL import ImageFont
-
-from typing import Dict, Final, List, NamedTuple, TYPE_CHECKING, Tuple
 
 if TYPE_CHECKING:
     from .core import FontT
@@ -17,23 +13,25 @@ if TYPE_CHECKING:
 # This is actually way faster than it seems
 # Create a dictionary mapping English emoji descriptions to their unicode representations
 # Only include emojis that have an English description and are fully qualified
-language_pack: Dict[str, str] = {
-    data['en']: emj
+language_pack: dict[str, str] = {
+    data["en"]: emj
     for emj, data in emoji.EMOJI_DATA.items()
-    if 'en' in data and data['status'] <= emoji.STATUS['fully_qualified']
+    if "en" in data and data["status"] <= emoji.STATUS["fully_qualified"]
 }
-_UNICODE_EMOJI_REGEX = '|'.join(map(re.escape, sorted(language_pack.values(), key=len, reverse=True)))
-_DISCORD_EMOJI_REGEX = '<a?:[a-zA-Z0-9_]{1,32}:[0-9]{17,22}>'
+_UNICODE_EMOJI_REGEX = "|".join(map(re.escape, sorted(language_pack.values(), key=len, reverse=True)))
+_DISCORD_EMOJI_REGEX = "<a?:[a-zA-Z0-9_]{1,32}:[0-9]{17,22}>"
 
-EMOJI_REGEX: Final[re.Pattern[str]] = re.compile(f'({_UNICODE_EMOJI_REGEX}|{_DISCORD_EMOJI_REGEX})')
+EMOJI_REGEX: Final[re.Pattern[str]] = re.compile(f"({_UNICODE_EMOJI_REGEX}|{_DISCORD_EMOJI_REGEX})")
 
-__all__ = (
-    'EMOJI_REGEX',
-    'Node',
-    'NodeType',
-    'to_nodes',
-    'getsize'
-)
+__all__ = ("EMOJI_REGEX", "Node", "NodeType", "_get_font_size", "getsize", "to_nodes")
+
+
+def _get_font_size(font: FontT) -> float:
+    """Get the size of a font, handling both FreeTypeFont and TransposedFont."""
+    if isinstance(font, ImageFont.TransposedFont):
+        assert not isinstance(font.font, ImageFont.ImageFont), "font.font should not be an ImageFont"
+        return font.font.size
+    return font.size
 
 
 class NodeType(Enum):
@@ -51,8 +49,8 @@ class NodeType(Enum):
         This node is a Discord emoji.
     """
 
-    text          = 0
-    emoji         = 1
+    text = 0
+    emoji = 1
     discord_emoji = 2
 
 
@@ -71,10 +69,10 @@ class Node(NamedTuple):
     content: str
 
     def __repr__(self) -> str:
-        return f'<Node type={self.type.name!r} content={self.content!r}>'
+        return f"<Node type={self.type.name!r} content={self.content!r}>"
 
 
-def _parse_line(line: str, /) -> List[Node]:
+def _parse_line(line: str, /) -> list[Node]:
     nodes = []
 
     for i, chunk in enumerate(EMOJI_REGEX.split(line)):
@@ -86,7 +84,7 @@ def _parse_line(line: str, /) -> List[Node]:
             continue
 
         if len(chunk) > 18:  # This is guaranteed to be a Discord emoji
-            node = Node(NodeType.discord_emoji, chunk.split(':')[-1][:-1])
+            node = Node(NodeType.discord_emoji, chunk.split(":")[-1][:-1])
         else:
             node = Node(NodeType.emoji, chunk)
 
@@ -95,7 +93,7 @@ def _parse_line(line: str, /) -> List[Node]:
     return nodes
 
 
-def to_nodes(text: str, /) -> List[List[Node]]:
+def to_nodes(text: str, /) -> list[list[Node]]:
     """Parses a string of text into :class:`~.Node`s.
 
     This method will return a nested list, each element of the list
@@ -118,11 +116,11 @@ def to_nodes(text: str, /) -> List[List[Node]]:
 
 def getsize(
     text: str,
-    font: FontT = None,
+    font: FontT,
     *,
     spacing: int = 4,
-    emoji_scale_factor: float = 1
-) -> Tuple[int, int]:
+    emoji_scale_factor: float = 1,
+) -> tuple[int, float]:
     """Return the width and height of the text when rendered.
     This method supports multiline text.
 
@@ -139,8 +137,6 @@ def getsize(
         The rescaling factor for emojis.
         Defaults to `1`.
     """
-    if font is None:
-        font = ImageFont.load_default()
 
     x, y = 0, 0
     nodes = to_nodes(text)
@@ -151,15 +147,13 @@ def getsize(
             content = node.content
 
             if node.type is not NodeType.text:
-                width = int(emoji_scale_factor * font.size)
-            elif tuple(int(part) for part in PIL.__version__.split(".")) >= (9, 2, 0):
-                width = int(font.getlength(content))
+                width = int(emoji_scale_factor * _get_font_size(font))
             else:
-                width, _ = font.getsize(content)
+                width = int(font.getlength(content))
 
             this_x += width
 
-        y += spacing + font.size
+        y += spacing + _get_font_size(font)
 
         if this_x > x:
             x = this_x

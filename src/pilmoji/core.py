@@ -1,34 +1,29 @@
 from __future__ import annotations
 
+from io import BytesIO
 import math
+from typing import TYPE_CHECKING, SupportsInt
 
-import PIL
 from PIL import Image, ImageDraw, ImageFont
 
-from typing import Dict, Optional, SupportsInt, TYPE_CHECKING, Tuple, Type, TypeVar, Union
-
-from .helpers import NodeType, getsize, to_nodes
-from .source import BaseSource, HTTPBasedSource, Twemoji, _has_requests
+from .helpers import NodeType, _get_font_size, getsize, to_nodes
+from .source import BaseSource, HTTPBasedSource, Twemoji
 
 if TYPE_CHECKING:
-    from io import BytesIO
+    FontT = ImageFont.FreeTypeFont | ImageFont.TransposedFont
+    ColorT = int | tuple[int, int, int] | tuple[int, int, int, int] | str
 
-    FontT = Union[ImageFont.ImageFont, ImageFont.FreeTypeFont, ImageFont.TransposedFont]
-    ColorT = Union[int, Tuple[int, int, int], Tuple[int, int, int, int], str]
-
-
-P = TypeVar('P', bound='Pilmoji')
-
-__all__ = (
-    'Pilmoji',
-)
+__all__ = ("Pilmoji",)
 
 
 class Pilmoji:
     """The main emoji rendering interface.
 
     .. note::
-        This should be used in a context manager.
+        This should be used in an async context manager.
+
+    .. note::
+        Requires Pillow 11.0.0 or higher.
 
     Parameters
     ----------
@@ -56,24 +51,24 @@ class Pilmoji:
         self,
         image: Image.Image,
         *,
-        source: Union[BaseSource, Type[BaseSource]] = Twemoji,
+        source: BaseSource | type[BaseSource] = Twemoji,
         cache: bool = True,
-        draw: Optional[ImageDraw.ImageDraw] = None,
+        draw: ImageDraw.ImageDraw | None = None,
         render_discord_emoji: bool = True,
         emoji_scale_factor: float = 1.0,
-        emoji_position_offset: Tuple[int, int] = (0, 0)
+        emoji_position_offset: tuple[int, int] = (0, 0),
     ) -> None:
         self.image: Image.Image = image
-        self.draw: ImageDraw.ImageDraw = draw
+        self.draw: ImageDraw.ImageDraw | None = draw
 
         if isinstance(source, type):
             if not issubclass(source, BaseSource):
-                raise TypeError(f'source must inherit from BaseSource, not {source}.')
+                raise TypeError(f"source must inherit from BaseSource, not {source}.")
 
             source = source()
 
         elif not isinstance(source, BaseSource):
-            raise TypeError(f'source must inherit from BaseSource, not {source.__class__}.')
+            raise TypeError(f"source must inherit from BaseSource, not {source.__class__}.")
 
         self.source: BaseSource = source
 
@@ -83,14 +78,14 @@ class Pilmoji:
 
         self._render_discord_emoji: bool = render_discord_emoji
         self._default_emoji_scale_factor: float = emoji_scale_factor
-        self._default_emoji_position_offset: Tuple[int, int] = emoji_position_offset
+        self._default_emoji_position_offset: tuple[int, int] = emoji_position_offset
 
-        self._emoji_cache: Dict[str, BytesIO] = {}
-        self._discord_emoji_cache: Dict[int, BytesIO] = {}
+        self._emoji_cache: dict[str, BytesIO] = {}
+        self._discord_emoji_cache: dict[int, BytesIO] = {}
 
         self._create_draw()
 
-    def open(self) -> None:
+    async def open(self) -> None:
         """Re-opens this renderer if it has been closed.
         This should rarely be called.
 
@@ -100,16 +95,18 @@ class Pilmoji:
             The renderer is already open.
         """
         if not self._closed:
-            raise ValueError('Renderer is already open.')
+            raise ValueError("Renderer is already open.")
 
-        if _has_requests and isinstance(self.source, HTTPBasedSource):
-            from requests import Session
-            self.source._requests_session = Session()
+        if isinstance(self.source, HTTPBasedSource):
+            if self.source.client.is_closed:
+                from httpx import AsyncClient
+
+                self.source.client = AsyncClient()
 
         self._create_draw()
         self._closed = False
 
-    def close(self) -> None:
+    async def close(self) -> None:
         """Safely closes this renderer.
 
         .. note::
@@ -121,14 +118,15 @@ class Pilmoji:
             The renderer has already been closed.
         """
         if self._closed:
-            raise ValueError('Renderer has already been closed.')
+            raise ValueError("Renderer has already been closed.")
 
         if self._new_draw:
             del self.draw
             self.draw = None
 
-        if _has_requests and isinstance(self.source, HTTPBasedSource):
-            self.source._requests_session.close()
+        if isinstance(self.source, HTTPBasedSource):
+            if not self.source.client.is_closed:
+                await self.source.client.aclose()
 
         if self._cache:
             for stream in self._emoji_cache.values():
@@ -147,20 +145,20 @@ class Pilmoji:
             self._new_draw = True
             self.draw = ImageDraw.Draw(self.image)
 
-    def _get_emoji(self, emoji: str, /) -> Optional[BytesIO]:
+    async def _get_emoji(self, emoji: str, /) -> BytesIO | None:
         if self._cache and emoji in self._emoji_cache:
             entry = self._emoji_cache[emoji]
             entry.seek(0)
             return entry
 
-        if stream := self.source.get_emoji(emoji):
+        if stream := await self.source.get_emoji(emoji):
             if self._cache:
                 self._emoji_cache[emoji] = stream
 
             stream.seek(0)
             return stream
 
-    def _get_discord_emoji(self, id: SupportsInt, /) -> Optional[BytesIO]:
+    async def _get_discord_emoji(self, id: SupportsInt, /) -> BytesIO | None:
         id = int(id)
 
         if self._cache and id in self._discord_emoji_cache:
@@ -168,7 +166,7 @@ class Pilmoji:
             entry.seek(0)
             return entry
 
-        if stream := self.source.get_discord_emoji(id):
+        if stream := await self.source.get_discord_emoji(id):
             if self._cache:
                 self._discord_emoji_cache[id] = stream
 
@@ -180,24 +178,22 @@ class Pilmoji:
     # https://github.com/python-pillow/Pillow/blob/main/LICENSE
     def _multiline_spacing(
         self,
-        font: ImageFont.ImageFont | ImageFont.FreeTypeFont | ImageFont.TransposedFont,
+        font: FontT,
         spacing: float,
         stroke_width: float,
     ) -> float:
-        return (
-            self.draw.textbbox((0, 0), "A", font, stroke_width=stroke_width)[3]
-            + stroke_width
-            + spacing
-        )
+        if self.draw is None:
+            raise RuntimeError("Draw instance is not initialized")
+        return self.draw.textbbox((0, 0), "A", font, stroke_width=stroke_width)[3] + stroke_width + spacing
 
     def getsize(
         self,
         text: str,
-        font: FontT = None,
+        font: FontT,
         *,
         spacing: int = 4,
-        emoji_scale_factor: float = None
-    ) -> Tuple[int, int]:
+        emoji_scale_factor: float | None = None,
+    ) -> tuple[int, float]:
         """Return the width and height of the text when rendered.
         This method supports multiline text.
 
@@ -219,26 +215,26 @@ class Pilmoji:
 
         return getsize(text, font, spacing=spacing, emoji_scale_factor=emoji_scale_factor)
 
-    def text(
+    async def text(
         self,
-        xy: Tuple[int, int],
+        xy: tuple[int, int],
         text: str,
-        fill: ColorT = None,
-        font: FontT = None,
-        anchor: str = None,
+        font: FontT,
+        fill: ColorT | None = None,
+        anchor: str | None = None,
         spacing: int = 4,
         node_spacing: int = 0,
         align: str = "left",
-        direction: str = None,
-        features: str = None,
-        language: str = None,
+        direction: str | None = None,
+        features: list[str] | None = None,
+        language: str | None = None,
         stroke_width: int = 0,
-        stroke_fill: ColorT = None,
+        stroke_fill: ColorT | None = None,
         embedded_color: bool = False,
+        emoji_scale_factor: float | None = None,
+        emoji_position_offset: tuple[int, int] | None = None,
         *args,
-        emoji_scale_factor: float = None,
-        emoji_position_offset: Tuple[int, int] = None,
-        **kwargs
+        **kwargs,
     ) -> None:
         """Draws the string at the given position, with emoji rendering support.
         This method supports multiline text.
@@ -280,9 +276,6 @@ class Pilmoji:
         if emoji_position_offset is None:
             emoji_position_offset = self._default_emoji_position_offset
 
-        if font is None:
-            font = ImageFont.load_default()
-        
         # first we need to test the anchor
         # because we want to make the exact same positions transformations than the "ImageDraw"."text" function in PIL
         # https://github.com/python-pillow/Pillow/blob/66c244af3233b1cc6cc2c424e9714420aca109ad/src/PIL/ImageDraw.py#L449
@@ -304,8 +297,13 @@ class Pilmoji:
         if direction == "ttb" and "\n" in text:
             msg = "ttb direction is unsupported for multiline text"
             raise ValueError(msg)
-        
+
+        if self.draw is None:
+            raise RuntimeError("Draw instance is not initialized")
+
         def getink(fill):
+            if self.draw is None:
+                raise RuntimeError("Draw instance is not initialized")
             ink, fill = self.draw._getink(fill)
             if ink is None:
                 return fill
@@ -315,6 +313,8 @@ class Pilmoji:
         original_x = x
         nodes = to_nodes(text)
         # get the distance between lines ( will be add to y between each line )
+        # font is guaranteed to be FontT at this point (not None)
+        assert font is not None, "Font should not be None at this point"
         line_spacing = self._multiline_spacing(font, spacing, stroke_width)
 
         # I change a part of the logic of text writing because it couldn't work "the same as PIL" if I didn't
@@ -327,7 +327,9 @@ class Pilmoji:
             mode = "RGBA"
         ink = getink(fill)
         # we get the size taken by a " " to be drawn with the given options
-        space_text_lenght = self.draw.textlength(" ", font, direction=direction, features=features, language=language, embedded_color=embedded_color)
+        space_text_lenght = self.draw.textlength(
+            " ", font, direction=direction, features=features, language=language, embedded_color=embedded_color
+        )
 
         for node_id, line in enumerate(nodes):
             text_line = ""
@@ -336,11 +338,11 @@ class Pilmoji:
                 content = node.content
                 stream = None
                 if node.type is NodeType.emoji:
-                    stream = self._get_emoji(content)
+                    stream = await self._get_emoji(content)
 
                 elif self._render_discord_emoji and node.type is NodeType.discord_emoji:
-                    stream = self._get_discord_emoji(content)
-                
+                    stream = await self._get_discord_emoji(int(content))
+
                 if stream:
                     streams[node_id][line_id] = stream
 
@@ -349,8 +351,10 @@ class Pilmoji:
                     text_line += node.content
                     continue
 
-                with Image.open(stream).convert('RGBA') as asset:
-                    width = round(emoji_scale_factor * font.size)
+                with Image.open(stream).convert("RGBA") as asset:
+                    # font is guaranteed to be FontT at this point (not None)
+                    assert font is not None, "Font should not be None at this point"
+                    width = round(emoji_scale_factor * _get_font_size(font))
                     ox, oy = emoji_position_offset
                     size = round(width + ox + (node_spacing * 2))
                     # for every emoji we calculate the space needed to display it in the current text
@@ -358,7 +362,7 @@ class Pilmoji:
                     # we had the equivalent space as " " caracter in the line text
                     text_line += "".join(" " for x in range(space_to_had))
 
-            #saving each line with the place to display emoji at the right place
+            # saving each line with the place to display emoji at the right place
             nodes_line_to_print.append(text_line)
             line_width = self.draw.textlength(
                 text_line, font, direction=direction, features=features, language=language
@@ -395,7 +399,7 @@ class Pilmoji:
             else:
                 msg = 'align must be "left", "center" or "right"'
                 raise ValueError(msg)
-            
+
             # if this line hase text to display then we draw it all at once ( one time only per line )
             if len(nodes_line_to_print[node_id]) > 0:
                 self.draw.text(
@@ -413,15 +417,11 @@ class Pilmoji:
                     stroke_fill=stroke_fill,
                     embedded_color=embedded_color,
                     *args,
-                    **kwargs
+                    **kwargs,
                 )
-            
-            coord = []
-            start = []
-            for i in range(2):
-                coord.append(int((x, y)[i]))
-                start.append(math.modf((x, y)[i])[0])
 
+            coord = (x, y)
+            start = (math.modf((x, y)[0])[0], math.modf((x, y)[1])[0])
             # respecting the way parameters are used in PIL to find the good x and y
             if ink is not None:
                 stroke_ink = None
@@ -432,54 +432,69 @@ class Pilmoji:
                     ink = stroke_ink
                     stroke_width = 0
                 try:
-                    _, offset = font.getmask2(
-                        nodes_line_to_print[node_id],
-                        mode,
-                        direction=direction,
-                        features=features,
-                        language=language,
-                        stroke_width=stroke_width,
-                        anchor=anchor,
-                        ink=ink,
-                        start=start,
-                        *args,
-                        **kwargs,
-                    )
+                    if isinstance(font, ImageFont.TransposedFont):
+                        assert not isinstance(font.font, ImageFont.ImageFont), "font.font should not be an ImageFont"
+                        _, offset = font.font.getmask2(
+                            nodes_line_to_print[node_id],
+                            mode,
+                            direction=direction,
+                            features=features,
+                            language=language,
+                            stroke_width=stroke_width,
+                            anchor=anchor,
+                            ink=ink,
+                            start=start,
+                            *args,
+                            **kwargs,
+                        )
+                    else:
+                        _, offset = font.getmask2(
+                            nodes_line_to_print[node_id],
+                            mode,
+                            direction=direction,
+                            features=features,
+                            language=language,
+                            stroke_width=stroke_width,
+                            anchor=anchor,
+                            ink=ink,
+                            start=start,
+                            *args,
+                            **kwargs,
+                        )
                     coord = coord[0] + offset[0], coord[1] + offset[1]
                 except AttributeError:
                     pass
                 x, line_y = coord
-            
+
             for line_id, node in enumerate(line):
                 content = node.content
 
-                # if node is text then we decale our x 
+                # if node is text then we decale our x
                 # but since the text line as already be drawn we do not need to draw text here anymore
                 if node.type is NodeType.text or line_id not in streams[node_id]:
-                    if tuple(int(part) for part in PIL.__version__.split(".")) >= (9, 2, 0):
-                        width = int(font.getlength(content, direction=direction, features=features, language=language))
-                    else:
-                        width, _ = font.getsize(content)
+                    width = int(font.getlength(content, direction=direction, features=features, language=language))
                     x += node_spacing + width
                     continue
 
                 if line_id in streams[node_id]:
-                    with Image.open(streams[node_id][line_id]).convert('RGBA') as asset:
-                        width = round(emoji_scale_factor * font.size)
+                    with Image.open(streams[node_id][line_id]).convert("RGBA") as asset:
+                        # font is guaranteed to be FontT at this point (not None)
+                        assert font is not None, "Font should not be None at this point"
+                        width = round(emoji_scale_factor * _get_font_size(font))
                         size = width, round(math.ceil(asset.height / asset.width * width))
                         asset = asset.resize(size, Image.Resampling.LANCZOS)
                         ox, oy = emoji_position_offset
-                        
-                        self.image.paste(asset, (round(x + ox), round(line_y + oy)), asset)
 
-                x += node_spacing + width
+                        self.image.paste(asset, (round(x + ox), round(line_y + oy)), asset)
+                        x += node_spacing + width
+                    continue
             y += line_spacing
 
-    def __enter__(self: P) -> P:
+    async def __aenter__(self: "Pilmoji") -> "Pilmoji":
         return self
 
-    def __exit__(self, *_) -> None:
-        self.close()
+    async def __aexit__(self, *_) -> None:
+        await self.close()
 
     def __repr__(self) -> str:
-        return f'<Pilmoji source={self.source} cache={self._cache}>'
+        return f"<Pilmoji source={self.source} cache={self._cache}>"
