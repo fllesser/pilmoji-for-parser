@@ -138,9 +138,6 @@ class Pilmoji:
             stream.seek(0)
             return stream
 
-    # this function was removed from pillow somewhere around 11.2
-    # this is the same functin that pillow used
-    # https://github.com/python-pillow/Pillow/blob/main/LICENSE
     def _multiline_spacing(
         self,
         font: FontT,
@@ -292,7 +289,7 @@ class Pilmoji:
             mode = "RGBA"
         ink = getink(fill)
         # we get the size taken by a " " to be drawn with the given options
-        space_text_lenght = self.draw.textlength(
+        space_text_length = self.draw.textlength(
             " ", font, direction=direction, features=features, language=language, embedded_color=embedded_color
         )
 
@@ -323,8 +320,8 @@ class Pilmoji:
                     ox, oy = emoji_position_offset
                     size = round(width + ox + (node_spacing * 2))
                     # for every emoji we calculate the space needed to display it in the current text
-                    space_to_had = round(size / space_text_lenght)
-                    # we had the equivalent space as " " caracter in the line text
+                    space_to_had = round(size / space_text_length)
+                    # we had the equivalent space as " " character in the line text
                     text_line += "".join(" " for x in range(space_to_had))
 
             # saving each line with the place to display emoji at the right place
@@ -335,7 +332,7 @@ class Pilmoji:
             widths.append(line_width)
             max_width = max(max_width, line_width)
 
-        # taking into acount the anchor to place the text in the right place
+        # taking into account the anchor to place the text in the right place
         if anchor[1] == "m":
             y -= (len(nodes) - 1) * line_spacing / 2.0
         elif anchor[1] == "d":
