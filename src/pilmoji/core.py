@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING, SupportsInt
 from PIL import Image, ImageDraw, ImageFont
 
 from .helpers import NodeType, _get_font_size, getsize, to_nodes
-from .source import BaseSource, HTTPBasedSource, Twemoji
+from .source import BaseSource, EmojiCDNSource
 
 if TYPE_CHECKING:
     FontT = ImageFont.FreeTypeFont | ImageFont.TransposedFont
@@ -51,7 +51,7 @@ class Pilmoji:
         self,
         image: Image.Image,
         *,
-        source: BaseSource = Twemoji(),
+        source: BaseSource = EmojiCDNSource(),
         cache: bool = True,
         draw: ImageDraw.ImageDraw | None = None,
         render_discord_emoji: bool = True,
@@ -75,27 +75,6 @@ class Pilmoji:
 
         self._create_draw()
 
-    async def open(self) -> None:
-        """Re-opens this renderer if it has been closed.
-        This should rarely be called.
-
-        Raises
-        ------
-        ValueError
-            The renderer is already open.
-        """
-        if not self._closed:
-            raise ValueError("Renderer is already open.")
-
-        if isinstance(self.source, HTTPBasedSource):
-            if self.source.client.is_closed:
-                from httpx import AsyncClient
-
-                self.source.client = AsyncClient()
-
-        self._create_draw()
-        self._closed = False
-
     async def close(self) -> None:
         """Safely closes this renderer.
 
@@ -114,10 +93,6 @@ class Pilmoji:
             del self.draw
             self.draw = None
 
-        if isinstance(self.source, HTTPBasedSource):
-            if not self.source.client.is_closed:
-                await self.source.client.aclose()
-
         if self._cache:
             for stream in self._emoji_cache.values():
                 stream.close()
@@ -135,7 +110,7 @@ class Pilmoji:
             self._new_draw = True
             self.draw = ImageDraw.Draw(self.image)
 
-    async def _get_emoji(self, emoji: str, /) -> BytesIO | None:
+    async def _get_emoji(self, emoji: str) -> BytesIO | None:
         if self._cache and emoji in self._emoji_cache:
             entry = self._emoji_cache[emoji]
             entry.seek(0)
@@ -148,7 +123,7 @@ class Pilmoji:
             stream.seek(0)
             return stream
 
-    async def _get_discord_emoji(self, id: SupportsInt, /) -> BytesIO | None:
+    async def _get_discord_emoji(self, id: SupportsInt) -> BytesIO | None:
         id = int(id)
 
         if self._cache and id in self._discord_emoji_cache:

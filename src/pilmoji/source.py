@@ -1,33 +1,19 @@
 from abc import ABC, abstractmethod
+from enum import Enum
 from io import BytesIO
 from pathlib import Path
 from typing import Any, ClassVar
 from urllib.parse import quote_plus
 
 from aiofiles import open as aopen
+from emoji import EMOJI_DATA
 from httpx import AsyncClient, HTTPError
 
 __all__ = (
-    "AppleEmojiSource",
     "BaseSource",
     "DiscordEmojiSourceMixin",
     "EmojiCDNSource",
-    "EmojidexEmojiSource",
-    "FacebookEmojiSource",
-    "FacebookMessengerEmojiSource",
-    "GoogleEmojiSource",
     "HTTPBasedSource",
-    "JoyPixelsEmojiSource",
-    "MessengerEmojiSource",
-    "MicrosoftEmojiSource",
-    "MozillaEmojiSource",
-    "Openmoji",
-    "OpenmojiEmojiSource",
-    "SamsungEmojiSource",
-    "Twemoji",
-    "TwemojiEmojiSource",
-    "TwitterEmojiSource",
-    "WhatsAppEmojiSource",
 )
 
 
@@ -80,14 +66,66 @@ class HTTPBasedSource(BaseSource):
     REQUEST_KWARGS: ClassVar[dict[str, Any]] = {"headers": {"User-Agent": "Mozilla/5.0"}}
 
     def __init__(self, cache_dir: Path | None = None) -> None:
-        self.client = AsyncClient()
+        self.cache_dir: Path = cache_dir or (Path.home() / ".cache" / "pilmoji")
+        if cache_dir is not None:
+            cache_dir.mkdir(parents=True, exist_ok=True)
+        self.client = AsyncClient(**self.REQUEST_KWARGS)
+
+    async def download(self, url: str) -> bytes:
+        response = await self.client.get(url)
+        response.raise_for_status()
+        return response.content
+
+
+class EmojiStyle(str, Enum):
+    APPLE = "apple"
+    GOOGLE = "google"
+    MICROSOFT = "microsoft"
+    SAMSUNG = "samsung"
+    WHATSAPP = "whatsapp"
+    FACEBOOK = "facebook"
+    MESSENGER = "messenger"
+    JOYPIXELS = "joypixels"
+    OPENMOJI = "openmoji"
+    EMOJIDEX = "emojidex"
+    MOZILLA = "mozilla"
+
+    def __str__(self) -> str:
+        return self.value
+
+
+class LocalEmojiSource:
+    BASE_DISCORD_EMOJI_URL: ClassVar[str] = "https://cdn.discordapp.com/emojis/"
+    BASE_EMOJI_CDN_URL: ClassVar[str] = "https://emojicdn.elk.sh/"
+
+    def __init__(self, style: EmojiStyle, cache_dir: Path | None = None) -> None:
+        self.style = style.value
         self.cache_dir: Path = cache_dir or Path.home() / ".cache" / "pilmoji"
         if cache_dir is not None:
             cache_dir.mkdir(parents=True, exist_ok=True)
 
-    async def download(self, url: str) -> bytes:
-        response = await self.client.get(url, **self.REQUEST_KWARGS)
-        return response.content
+    async def download_all_emojis(self) -> None:
+        from asyncio import create_task, gather
+
+        async def download_emoji(client: AsyncClient, emj: str) -> None:
+            file_path = self.cache_dir / self.style / f"{emj}.png"
+            if file_path.exists():
+                return
+            url = self.BASE_EMOJI_CDN_URL + quote_plus(emj) + "?style=" + quote_plus(self.style)
+            response = await client.get(url)
+            response.raise_for_status()
+            async with aopen(file_path, "wb") as f:
+                await f.write(response.content)
+
+        async with AsyncClient(headers={"User-Agent": "Mozilla/5.0"}) as client:
+            tasks = [create_task(download_emoji(client, emj)) for emj, _ in EMOJI_DATA.items()]
+            await gather(*tasks, return_exceptions=True)
+
+    def get_emoji(self, emoji: str) -> BytesIO | None:
+        return BytesIO(open(self.cache_dir / self.style / f"{emoji}.png", "rb").read())
+
+    def get_discord_emoji(self, id: int) -> BytesIO | None:
+        return BytesIO(open(self.cache_dir / "discord" / f"{id}.png", "rb").read())
 
 
 class DiscordEmojiSourceMixin(HTTPBasedSource):
@@ -96,18 +134,17 @@ class DiscordEmojiSourceMixin(HTTPBasedSource):
     BASE_DISCORD_EMOJI_URL: ClassVar[str] = "https://cdn.discordapp.com/emojis/"
 
     async def get_discord_emoji(self, id: int) -> BytesIO | None:
-        file_path = self.cache_dir / f"{id}.png"
+        file_path = self.cache_dir / "discord" / f"{id}.png"
         if file_path.exists():
-            return BytesIO(file_path.read_bytes())
+            async with aopen(file_path, "rb") as f:
+                return BytesIO(await f.read())
 
         url = self.BASE_DISCORD_EMOJI_URL + str(id) + ".png"
 
         try:
             bytes = await self.download(url)
-
             async with aopen(file_path, "wb") as f:
                 await f.write(bytes)
-
             return BytesIO(bytes)
         except HTTPError:
             return None
@@ -117,99 +154,20 @@ class EmojiCDNSource(DiscordEmojiSourceMixin):
     """A base source that fetches emojis from https://emojicdn.elk.sh/."""
 
     BASE_EMOJI_CDN_URL: ClassVar[str] = "https://emojicdn.elk.sh/"
-    STYLE: ClassVar[str] = "apple"
+    STYLE: ClassVar[EmojiStyle] = EmojiStyle.MICROSOFT
 
     async def get_emoji(self, emoji: str) -> BytesIO | None:
-        file_path = self.cache_dir / f"{emoji}.png"
+        file_path = self.cache_dir / self.STYLE.value / f"{emoji}.png"
         if file_path.exists():
-            return BytesIO(file_path.read_bytes())
+            async with aopen(file_path, "rb") as f:
+                return BytesIO(await f.read())
 
-        url = self.BASE_EMOJI_CDN_URL + quote_plus(emoji) + "?style=" + quote_plus(self.STYLE)
+        url = self.BASE_EMOJI_CDN_URL + quote_plus(emoji) + "?style=" + quote_plus(self.STYLE.value)
 
         try:
             bytes = await self.download(url)
-
             async with aopen(file_path, "wb") as f:
                 await f.write(bytes)
-
             return BytesIO(bytes)
         except HTTPError:
             return None
-
-
-class TwitterEmojiSource(EmojiCDNSource):
-    """A source that uses Twitter-style emojis. These are also the ones used in Discord."""
-
-    STYLE = "twitter"
-
-
-class AppleEmojiSource(EmojiCDNSource):
-    """A source that uses Apple emojis."""
-
-    STYLE = "apple"
-
-
-class GoogleEmojiSource(EmojiCDNSource):
-    """A source that uses Google emojis."""
-
-    STYLE = "google"
-
-
-class MicrosoftEmojiSource(EmojiCDNSource):
-    """A source that uses Microsoft emojis."""
-
-    STYLE = "microsoft"
-
-
-class SamsungEmojiSource(EmojiCDNSource):
-    """A source that uses Samsung emojis."""
-
-    STYLE = "samsung"
-
-
-class WhatsAppEmojiSource(EmojiCDNSource):
-    """A source that uses WhatsApp emojis."""
-
-    STYLE = "whatsapp"
-
-
-class FacebookEmojiSource(EmojiCDNSource):
-    """A source that uses Facebook emojis."""
-
-    STYLE = "facebook"
-
-
-class MessengerEmojiSource(EmojiCDNSource):
-    """A source that uses Facebook Messenger's emojis."""
-
-    STYLE = "messenger"
-
-
-class JoyPixelsEmojiSource(EmojiCDNSource):
-    """A source that uses JoyPixels' emojis."""
-
-    STYLE = "joypixels"
-
-
-class OpenmojiEmojiSource(EmojiCDNSource):
-    """A source that uses Openmoji emojis."""
-
-    STYLE = "openmoji"
-
-
-class EmojidexEmojiSource(EmojiCDNSource):
-    """A source that uses Emojidex emojis."""
-
-    STYLE = "emojidex"
-
-
-class MozillaEmojiSource(EmojiCDNSource):
-    """A source that uses Mozilla's emojis."""
-
-    STYLE = "mozilla"
-
-
-# Aliases
-Openmoji = OpenmojiEmojiSource
-FacebookMessengerEmojiSource = MessengerEmojiSource
-TwemojiEmojiSource = Twemoji = TwitterEmojiSource
