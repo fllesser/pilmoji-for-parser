@@ -51,7 +51,7 @@ class Pilmoji:
         self,
         image: Image.Image,
         *,
-        source: BaseSource | type[BaseSource] = Twemoji,
+        source: BaseSource = Twemoji(),
         cache: bool = True,
         draw: ImageDraw.ImageDraw | None = None,
         render_discord_emoji: bool = True,
@@ -61,17 +61,7 @@ class Pilmoji:
         self.image: Image.Image = image
         self.draw: ImageDraw.ImageDraw | None = draw
 
-        if isinstance(source, type):
-            if not issubclass(source, BaseSource):
-                raise TypeError(f"source must inherit from BaseSource, not {source}.")
-
-            source = source()
-
-        elif not isinstance(source, BaseSource):
-            raise TypeError(f"source must inherit from BaseSource, not {source.__class__}.")
-
         self.source: BaseSource = source
-
         self._cache: bool = cache
         self._closed: bool = False
         self._new_draw: bool = False

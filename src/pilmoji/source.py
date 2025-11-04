@@ -1,8 +1,10 @@
 from abc import ABC, abstractmethod
 from io import BytesIO
+from pathlib import Path
 from typing import Any, ClassVar
 from urllib.parse import quote_plus
 
+from aiofiles import open as aopen
 from httpx import AsyncClient, HTTPError
 
 __all__ = (
@@ -33,7 +35,7 @@ class BaseSource(ABC):
     """The base class for an emoji image source."""
 
     @abstractmethod
-    async def get_emoji(self, emoji: str, /) -> BytesIO | None:
+    async def get_emoji(self, emoji: str) -> BytesIO | None:
         """Retrieves a :class:`io.BytesIO` stream for the image of the given emoji.
 
         Parameters
@@ -51,7 +53,7 @@ class BaseSource(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    async def get_discord_emoji(self, id: int, /) -> BytesIO | None:
+    async def get_discord_emoji(self, id: int) -> BytesIO | None:
         """Retrieves a :class:`io.BytesIO` stream for the image of the given Discord emoji.
 
         Parameters
@@ -77,10 +79,13 @@ class HTTPBasedSource(BaseSource):
 
     REQUEST_KWARGS: ClassVar[dict[str, Any]] = {"headers": {"User-Agent": "Mozilla/5.0"}}
 
-    def __init__(self) -> None:
+    def __init__(self, cache_dir: Path | None = None) -> None:
         self.client = AsyncClient()
+        self.cache_dir: Path = cache_dir or Path.home() / ".cache" / "pilmoji"
+        if cache_dir is not None:
+            cache_dir.mkdir(parents=True, exist_ok=True)
 
-    async def request(self, url: str) -> bytes:
+    async def download(self, url: str) -> bytes:
         response = await self.client.get(url, **self.REQUEST_KWARGS)
         return response.content
 
@@ -90,35 +95,46 @@ class DiscordEmojiSourceMixin(HTTPBasedSource):
 
     BASE_DISCORD_EMOJI_URL: ClassVar[str] = "https://cdn.discordapp.com/emojis/"
 
-    @abstractmethod
-    async def get_emoji(self, emoji: str, /) -> BytesIO | None:
-        raise NotImplementedError
+    async def get_discord_emoji(self, id: int) -> BytesIO | None:
+        file_path = self.cache_dir / f"{id}.png"
+        if file_path.exists():
+            return BytesIO(file_path.read_bytes())
 
-    async def get_discord_emoji(self, id: int, /) -> BytesIO | None:
         url = self.BASE_DISCORD_EMOJI_URL + str(id) + ".png"
 
         try:
-            return BytesIO(await self.request(url))
+            bytes = await self.download(url)
+
+            async with aopen(file_path, "wb") as f:
+                await f.write(bytes)
+
+            return BytesIO(bytes)
         except HTTPError:
-            pass
+            return None
 
 
 class EmojiCDNSource(DiscordEmojiSourceMixin):
     """A base source that fetches emojis from https://emojicdn.elk.sh/."""
 
     BASE_EMOJI_CDN_URL: ClassVar[str] = "https://emojicdn.elk.sh/"
-    STYLE: ClassVar[str | None] = None
+    STYLE: ClassVar[str] = "apple"
 
-    async def get_emoji(self, emoji: str, /) -> BytesIO | None:
-        if self.STYLE is None:
-            raise TypeError("STYLE class variable unfilled.")
+    async def get_emoji(self, emoji: str) -> BytesIO | None:
+        file_path = self.cache_dir / f"{emoji}.png"
+        if file_path.exists():
+            return BytesIO(file_path.read_bytes())
 
         url = self.BASE_EMOJI_CDN_URL + quote_plus(emoji) + "?style=" + quote_plus(self.STYLE)
 
         try:
-            return BytesIO(await self.request(url))
+            bytes = await self.download(url)
+
+            async with aopen(file_path, "wb") as f:
+                await f.write(bytes)
+
+            return BytesIO(bytes)
         except HTTPError:
-            pass
+            return None
 
 
 class TwitterEmojiSource(EmojiCDNSource):
