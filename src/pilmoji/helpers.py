@@ -71,3 +71,58 @@ def _parse_line(line: str, unicode_only: bool = True) -> list[Node]:
 
 def to_nodes(text: str, unicode_only: bool = True) -> list[list[Node]]:
     return [_parse_line(line, unicode_only) for line in text.splitlines()]
+
+
+def get_font_size(font: FontT) -> float:
+    """Get the size of a font, handling both FreeTypeFont and TransposedFont."""
+    if isinstance(font, ImageFont.TransposedFont):
+        assert not isinstance(font.font, ImageFont.ImageFont), "font.font should not be an ImageFont"
+        return font.font.size
+    return font.size
+
+
+def getsize(
+    text: str,
+    font: FontT,
+    *,
+    spacing: int = 4,
+    emoji_scale_factor: float = 1,
+) -> tuple[int, float]:
+    """Return the width and height of the text when rendered.
+    This method supports multiline text.
+
+    Parameters
+    ----------
+    text: str
+        The text to use.
+    font
+        The font of the text.
+    spacing: int
+        The spacing between lines, in pixels.
+        Defaults to `4`.
+    emoji_scale_factor: float
+        The rescaling factor for emojis.
+        Defaults to `1`.
+    """
+
+    x, y = 0, 0
+    nodes = to_nodes(text)
+
+    for line in nodes:
+        this_x = 0
+        for node in line:
+            content = node.content
+
+            if node.type is not NodeType.text:
+                width = int(emoji_scale_factor * get_font_size(font))
+            else:
+                width = int(font.getlength(content))
+
+            this_x += width
+
+        y += spacing + get_font_size(font)
+
+        if this_x > x:
+            x = this_x
+
+    return x, y - spacing
