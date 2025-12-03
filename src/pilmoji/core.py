@@ -60,23 +60,25 @@ class Pilmoji:
         """Render text"""
         draw.text(xy, content, font=font, fill=fill)
 
-    def _render_emoji(
-        self,
-        image: PILImage,
-        xy: tuple[int, int],
-        bytesio: BytesIO,
-        size: float,
-    ):
-        """Render emoji"""
+    def _resize_emoji(self, bytesio: BytesIO, size: float) -> PILImage:
+        """Resize emoji to fit the font size"""
         bytesio.seek(0)
         with Image.open(bytesio).convert("RGBA") as emoji_img:
             emoji_size = int(size) - self.SIZE_DIFF
             aspect_ratio = emoji_img.height / emoji_img.width
-            resized = emoji_img.resize(
+            return emoji_img.resize(
                 (emoji_size, int(emoji_size * aspect_ratio)),
                 Image.Resampling.LANCZOS,
             )
-            image.paste(resized, xy, resized)
+
+    def _render_emoji(
+        self,
+        image: PILImage,
+        xy: tuple[int, int],
+        emoji: PILImage,
+    ):
+        """Render emoji"""
+        image.paste(emoji, xy, emoji)
 
     async def text(
         self,
@@ -136,15 +138,19 @@ class Pilmoji:
         font_size = helper.get_font_size(font)
         y_diff = int((line_height - font_size) / 2)
 
+        # Pre-resize emojis
+        resized_emojis: dict[str, PILImage] = {}
+        for emoji, bytesio in emj_map.items():
+            if bytesio:
+                resized_emojis[emoji] = self._resize_emoji(bytesio, font_size)
+
         for line in lines:
             cur_x = x
 
             for node in line:
                 if node.type is NodeType.EMOJI:
-                    if bytesio := emj_map.get(node.content):
-                        self._render_emoji(
-                            image, (cur_x, y + y_diff), bytesio, font_size
-                        )
+                    if emoji_img := resized_emojis.get(node.content):
+                        self._render_emoji(image, (cur_x, y + y_diff), emoji_img)
                     else:
                         self._render_text(draw, (cur_x, y), node.content, font, fill)
                     cur_x += int(font_size)
@@ -225,23 +231,32 @@ class Pilmoji:
         font_size = helper.get_font_size(font)
         y_diff = int((line_height - font_size) / 2)
 
+        # Pre-resize emojis
+        resized_emojis: dict[str | int, PILImage] = {}
+        for emoji, bytesio in emj_map.items():
+            if bytesio:
+                resized_emojis[emoji] = self._resize_emoji(bytesio, font_size)
+        for eid, bytesio in ds_emj_map.items():
+            if bytesio:
+                resized_emojis[eid] = self._resize_emoji(bytesio, font_size)
+
         for line in lines:
             cur_x = x
 
             for node in line:
-                stream = None
+                emoji_img = None
                 fallback_text = node.content
 
                 if node.type is NodeType.EMOJI:
-                    stream = emj_map.get(node.content)
+                    emoji_img = resized_emojis.get(node.content)
                 elif node.type is NodeType.DISCORD_EMOJI:
-                    stream = ds_emj_map.get(int(node.content))
-                    if not stream:
+                    emoji_img = resized_emojis.get(int(node.content))
+                    if not emoji_img:
                         fallback_text = f"[:{node.content}:]"
 
                 # Render emoji or text
-                if stream:
-                    self._render_emoji(image, (cur_x, y + y_diff), stream, font_size)
+                if emoji_img:
+                    self._render_emoji(image, (cur_x, y + y_diff), emoji_img)
                     cur_x += int(font_size)
                 else:
                     self._render_text(draw, (cur_x, y), fallback_text, font, fill)
