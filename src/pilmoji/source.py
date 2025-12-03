@@ -6,12 +6,6 @@ from pathlib import Path
 from httpx import HTTPError, AsyncClient
 from aiofiles import open as aopen
 
-__all__ = (
-    "BaseSource",
-    "EmojiCDNSource",
-    "HTTPBasedSource",
-)
-
 
 class BaseSource(ABC):
     """The base class for an emoji image source."""
@@ -143,12 +137,14 @@ class EmojiStyle(str, Enum):
         return self.value
 
 
-class EmojiCDNSource(HTTPBasedSource):
-    """A base source that fetches emojis from https://emojicdn.elk.sh/."""
+ELK_SH_CDN = "https://emojicdn.elk.sh"
+MQRIO_DEV_CDN = "https://emoji-cdn.mqrio.dev"
 
+
+class EmojiCDNSource(HTTPBasedSource):
     def __init__(
         self,
-        base_url: str = "https://emoji-cdn.mqrio.dev",
+        base_url: str = MQRIO_DEV_CDN,
         style: EmojiStyle | str = EmojiStyle.APPLE,
         *,
         cache_dir: Path | None = None,
