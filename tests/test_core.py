@@ -39,14 +39,14 @@ async def test_text_with_discord_emoji(font_path, cache_dir):
 
     from pilmoji import Pilmoji, EmojiCDNSource
 
-    my_string = (
-        "Hello, world! 👋 Here are some emojis: 🎨 🌊 😎\nI also support Discord emoji: <:rooThink:596576798351949847>"
-    )
+    my_string = "Hello, world! 👋 Here are some emojis: 🎨 🌊 😎\nI also support Discord emoji: <:rooThink:596576798351949847>"
 
     font = ImageFont.truetype(font_path, 24)
     async with Pilmoji(source=EmojiCDNSource(cache_dir=cache_dir)) as pilmoji:
         image = Image.new("RGB", (500, 200), (255, 255, 255))
-        await pilmoji.text_with_discord_emoji(image, (10, 10), my_string, font, (0, 0, 0))
+        await pilmoji.text_with_discord_emoji(
+            image, (10, 10), my_string, font, (0, 0, 0)
+        )
         assert image is not None
         image.save(cache_dir / "text_with_discord_emoji.png")
 

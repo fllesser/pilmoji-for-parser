@@ -17,10 +17,14 @@ _EMOJI_LANGUAGE_PACK: dict[str, str] = {
 }
 
 # Regex patterns for matching emojis
-_UNICODE_EMOJI_REGEX = "|".join(map(re.escape, sorted(_EMOJI_LANGUAGE_PACK.values(), key=len, reverse=True)))
+_UNICODE_EMOJI_REGEX = "|".join(
+    map(re.escape, sorted(_EMOJI_LANGUAGE_PACK.values(), key=len, reverse=True))
+)
 _DISCORD_EMOJI_REGEX = r"<a?:[a-zA-Z0-9_]{1,32}:[0-9]{17,22}>"
 
-EMOJI_REGEX: Final[re.Pattern[str]] = re.compile(f"({_UNICODE_EMOJI_REGEX}|{_DISCORD_EMOJI_REGEX})")
+EMOJI_REGEX: Final[re.Pattern[str]] = re.compile(
+    f"({_UNICODE_EMOJI_REGEX}|{_DISCORD_EMOJI_REGEX})"
+)
 UNICODE_EMOJI_REGEX: Final[re.Pattern[str]] = re.compile(_UNICODE_EMOJI_REGEX)
 
 
@@ -52,7 +56,11 @@ def has_emoji(text: str, unicode_only: bool = True) -> bool:
     bool
         True if the text contains any emoji characters, False otherwise
     """
-    return bool(UNICODE_EMOJI_REGEX.search(text)) if unicode_only else bool(EMOJI_REGEX.search(text))
+    return (
+        bool(UNICODE_EMOJI_REGEX.search(text))
+        if unicode_only
+        else bool(EMOJI_REGEX.search(text))
+    )
 
 
 def to_nodes(text: str, unicode_only: bool = True):
@@ -116,7 +124,9 @@ def get_font_size(font: FontT) -> float:
         The font size in points
     """
     if isinstance(font, ImageFont.TransposedFont):
-        assert not isinstance(font.font, ImageFont.ImageFont), "font.font should not be an ImageFont"
+        assert not isinstance(font.font, ImageFont.ImageFont), (
+            "font.font should not be an ImageFont"
+        )
         return font.font.size
     return font.size
 
