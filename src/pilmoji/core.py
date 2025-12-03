@@ -88,12 +88,9 @@ class Pilmoji:
     ) -> None:
         """Simplified text rendering method with Unicode emoji support.
 
-        This method provides a straightforward implementation without complex layout parameters.
-        Suitable for most simple use cases.
-
         Parameters
         ----------
-        image: Image.Image
+        image: PILImage
             The image to render onto
         xy: tuple[int, int]
             Rendering position (x, y)
@@ -122,7 +119,12 @@ class Pilmoji:
         lines = helper.to_nodes(text)
 
         # Collect all unique Unicode emojis to download
-        emj_set = {node.content for line in lines for node in line if node.type is NodeType.EMOJI}
+        emj_set = {
+            node.content
+            for line in lines
+            for node in line
+            if node.type is NodeType.EMOJI
+        }
 
         # Download all emojis concurrently
         emjios = await asyncio.gather(
@@ -139,7 +141,9 @@ class Pilmoji:
             for node in line:
                 if node.type is NodeType.EMOJI:
                     if bytesio := emj_map.get(node.content):
-                        self._render_emoji(image, (cur_x, y + y_diff), bytesio, font_size)
+                        self._render_emoji(
+                            image, (cur_x, y + y_diff), bytesio, font_size
+                        )
                     else:
                         self._render_text(draw, (cur_x, y), node.content, font, fill)
                 else:
@@ -150,7 +154,7 @@ class Pilmoji:
 
     async def text_with_discord_emoji(
         self,
-        image: Image.Image,
+        image: PILImage,
         xy: tuple[int, int],
         text: str,
         font: FontT,
@@ -158,12 +162,9 @@ class Pilmoji:
     ) -> None:
         """Simplified text rendering method with Unicode and Discord emoji support.
 
-        This method provides a straightforward implementation without complex layout parameters.
-        Suitable for scenarios requiring Discord emoji rendering.
-
         Parameters
         ----------
-        image: Image.Image
+        image: PILImage
             The image to render onto
         xy: tuple[int, int]
             Rendering position (x, y)
@@ -190,8 +191,18 @@ class Pilmoji:
         lines = helper.to_nodes(text, False)
 
         # Collect all unique emojis to download
-        emj_set = {node.content for line in lines for node in line if node.type is NodeType.EMOJI}
-        ds_emj_set = {int(node.content) for line in lines for node in line if node.type is NodeType.DISCORD_EMOJI}
+        emj_set = {
+            node.content
+            for line in lines
+            for node in line
+            if node.type is NodeType.EMOJI
+        }
+        ds_emj_set = {
+            int(node.content)
+            for line in lines
+            for node in line
+            if node.type is NodeType.DISCORD_EMOJI
+        }
 
         # Download all emojis concurrently
         emjios = await asyncio.gather(
