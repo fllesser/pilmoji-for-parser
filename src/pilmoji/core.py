@@ -12,7 +12,7 @@ from .source import BaseSource, EmojiCDNSource, HTTPBasedSource
 T = TypeVar("T")
 PILImage = Image.Image
 PILDraw = ImageDraw.ImageDraw
-ColorT = int | tuple[int, int, int] | tuple[int, int, int, int] | str
+ColorT = int | str | tuple[int, int, int] | tuple[int, int, int, int]
 
 
 class Pilmoji:
