@@ -2,30 +2,31 @@ import re
 from enum import Enum
 from typing import Final, NamedTuple
 
-import emoji
 from PIL import ImageFont
+from emoji import STATUS, EMOJI_DATA
 
 # Type aliases for font and color specifications
 FontT = ImageFont.FreeTypeFont | ImageFont.TransposedFont
 
-
 # Build emoji language pack mapping English names to emoji characters
-_EMOJI_LANGUAGE_PACK: dict[str, str] = {
-    data["en"]: emj
-    for emj, data in emoji.EMOJI_DATA.items()
-    if "en" in data and data["status"] <= emoji.STATUS["fully_qualified"]
+UNICODE_EMOJI_SET: Final[set[str]] = {
+    emj
+    for emj, data in EMOJI_DATA.items()
+    if data["status"] <= STATUS["fully_qualified"]
 }
 
 # Regex patterns for matching emojis
-_UNICODE_EMOJI_REGEX = "|".join(
-    map(re.escape, sorted(_EMOJI_LANGUAGE_PACK.values(), key=len, reverse=True))
+_UNICODE_EMOJI_REGEX: Final[str] = "|".join(
+    map(re.escape, sorted(UNICODE_EMOJI_SET, key=len, reverse=True))
 )
-_DISCORD_EMOJI_REGEX = r"<a?:[a-zA-Z0-9_]{1,32}:[0-9]{17,22}>"
+_DISCORD_EMOJI_REGEX: Final[str] = r"<a?:[a-zA-Z0-9_]{1,32}:[0-9]{17,22}>"
 
-EMOJI_REGEX: Final[re.Pattern[str]] = re.compile(
-    f"({_UNICODE_EMOJI_REGEX}|{_DISCORD_EMOJI_REGEX})"
+
+UNICODE_EMOJI_PATTERN: Final[re.Pattern[str]] = re.compile(_UNICODE_EMOJI_REGEX)
+DISCORD_EMOJI_PATTERN: Final[re.Pattern[str]] = re.compile(_DISCORD_EMOJI_REGEX)
+EMOJI_PATTERN: Final[re.Pattern[str]] = re.compile(
+    rf"({_UNICODE_EMOJI_REGEX}|{_DISCORD_EMOJI_REGEX})"
 )
-UNICODE_EMOJI_REGEX: Final[re.Pattern[str]] = re.compile(_UNICODE_EMOJI_REGEX)
 
 
 class NodeType(Enum):
@@ -42,7 +43,7 @@ class Node(NamedTuple):
 
 
 def has_emoji(text: str, unicode_only: bool = True) -> bool:
-    """Check if a string contains any emoji characters.
+    """Check if a string contains any emoji characters using a fast regex pattern.
 
     Parameters
     ----------
@@ -56,11 +57,14 @@ def has_emoji(text: str, unicode_only: bool = True) -> bool:
     bool
         True if the text contains any emoji characters, False otherwise
     """
-    return (
-        bool(UNICODE_EMOJI_REGEX.search(text))
-        if unicode_only
-        else bool(EMOJI_REGEX.search(text))
-    )
+    for char in text:
+        if char in UNICODE_EMOJI_SET:
+            return True
+
+    if unicode_only:
+        return False
+
+    return bool(DISCORD_EMOJI_PATTERN.search(text))
 
 
 def to_nodes(text: str, unicode_only: bool = True):
@@ -84,9 +88,9 @@ def _parse_line(line: str, unicode_only: bool = True) -> list[Node]:
     """
     last_end = 0
     nodes: list[Node] = []
-    regex = UNICODE_EMOJI_REGEX if unicode_only else EMOJI_REGEX
+    pattern = UNICODE_EMOJI_PATTERN if unicode_only else EMOJI_PATTERN
 
-    for match in regex.finditer(line):
+    for match in pattern.finditer(line):
         start, end = match.span()
 
         # Add text before the emoji

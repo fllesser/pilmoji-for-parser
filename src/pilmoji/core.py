@@ -142,7 +142,7 @@ class Pilmoji:
 
             y += line_height
 
-    async def text_with_discord_emoji(
+    async def text_with_ds_emj(
         self,
         image: PILImage,
         xy: tuple[int, int],
