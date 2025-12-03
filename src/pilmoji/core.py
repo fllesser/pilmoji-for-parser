@@ -247,8 +247,6 @@ class Pilmoji:
             y += line_height
 
     async def __aenter__(self):
-        if isinstance(self._source, HTTPBasedSource):
-            await self._source.__aenter__()
         return self
 
     async def __aexit__(self, exc_type, exc_value, traceback) -> None:

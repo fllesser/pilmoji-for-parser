@@ -54,14 +54,10 @@ class HTTPBasedSource(BaseSource):
     """Represents an HTTP-based source."""
 
     def __init__(self, cache_dir: Path | None = None):
-        self.cache_dir: Path = cache_dir or (Path.home() / ".cache" / "pilmoji")
-        self.cache_dir.mkdir(parents=True, exist_ok=True)
-        self._client: AsyncClient | None = None
+        self._cache_dir: Path = cache_dir or (Path.home() / ".cache" / "pilmoji")
+        self._client = AsyncClient(headers={"User-Agent": "Mozilla/5.0"})
 
-    def _ensure_client(self) -> AsyncClient:
-        if self._client is None or self._client.is_closed:
-            self._client = AsyncClient(headers={"User-Agent": "Mozilla/5.0"})
-        return self._client
+        self._cache_dir.mkdir(parents=True, exist_ok=True)
 
     async def download(self, url: str) -> bytes:
         """Downloads the image from the given URL.
@@ -72,21 +68,18 @@ class HTTPBasedSource(BaseSource):
         Returns:
             bytes: The image content.
         """
-        client = self._ensure_client()
-        response = await client.get(url)
+        response = await self._client.get(url)
         response.raise_for_status()
         return response.content
 
     async def aclose(self) -> None:
-        if self._client is not None and not self._client.is_closed:
-            await self._client.aclose()
-        self._client = None
+        """Closes the HTTP client."""
+        await self._client.aclose()
 
     async def __aenter__(self):
-        self._ensure_client()
         return self
 
-    async def __aexit__(self, exc_type, exc_value, traceback) -> None:
+    async def __aexit__(self, exc_type, exc, tb):
         await self.aclose()
 
 
@@ -108,11 +101,15 @@ class EmojiCDNSource(HTTPBasedSource):
     ) -> None:
         super().__init__(cache_dir=cache_dir)
         self.style = style.value
-        (self.cache_dir / self.style).mkdir(parents=True, exist_ok=True)
-        (self.cache_dir / "discord").mkdir(parents=True, exist_ok=True)
+
+        for emoji_dir in (
+            self._cache_dir / self.style,
+            self._cache_dir / "discord",
+        ):
+            emoji_dir.mkdir(parents=True, exist_ok=True)
 
     async def get_emoji(self, emoji: str) -> BytesIO | None:
-        file_path = self.cache_dir / self.style / f"{emoji}.png"
+        file_path = self._cache_dir / self.style / f"{emoji}.png"
         if file_path.exists():
             async with aopen(file_path, "rb") as f:
                 return BytesIO(await f.read())
@@ -129,7 +126,7 @@ class EmojiCDNSource(HTTPBasedSource):
 
     async def get_discord_emoji(self, id: int) -> BytesIO | None:
         file_name = f"{id}.png"
-        file_path = self.cache_dir / "discord" / file_name
+        file_path = self._cache_dir / "discord" / file_name
         if file_path.exists():
             async with aopen(file_path, "rb") as f:
                 return BytesIO(await f.read())
