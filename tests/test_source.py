@@ -33,13 +33,20 @@ async def test_get_discord_emoji_from_cdn(cache_dir):
 
 @pytest.mark.asyncio
 async def test_all_style(cache_dir):
+    import asyncio
+
     from pilmoji import EmojiStyle, EmojiCDNSource
 
     emoji_str = "👍"
-    for style in EmojiStyle:
+
+    assert str(EmojiStyle.APPLE) == "apple"
+
+    async def test_style(style: EmojiStyle):
         async with EmojiCDNSource(cache_dir=cache_dir, style=style) as source:
             image = await source.get_emoji(emoji_str)
-            assert image is not None
+            assert image is not None, f"Failed to get emoji for style {style}"
+
+    await asyncio.gather(*[test_style(style) for style in EmojiStyle])
 
 
 @pytest.mark.asyncio
