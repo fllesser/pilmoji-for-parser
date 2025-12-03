@@ -18,6 +18,7 @@ def font_path() -> Path:
 @pytest.fixture(scope="session")
 def cache_dir() -> Path:
     """返回缓存目录路径。"""
+    CACHE_DIR.mkdir(parents=True, exist_ok=True)
     return CACHE_DIR
 
 
