@@ -135,7 +135,7 @@ class Pilmoji:
         async with AsyncClient(
             headers={"User-Agent": "Mozilla/5.0"},
             timeout=Timeout(connect=5.0, read=15.0, write=5.0, pool=5.0),
-            limits=Limits(max_connections=16, max_keepalive_connections=16),
+            limits=Limits(max_connections=32, max_keepalive_connections=32),
         ) as client:
             token = client_cv.set(client)
             try:
