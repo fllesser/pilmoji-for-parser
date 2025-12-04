@@ -1,6 +1,6 @@
-import asyncio
 from io import BytesIO
 from typing import TypeVar
+from asyncio import Semaphore, gather
 from collections.abc import Awaitable
 
 from PIL import Image, ImageDraw
@@ -31,7 +31,7 @@ class Pilmoji:
         self._source: BaseSource = source
         self._emoji_cache: dict[str, BytesIO] = {}
         self._max_concurrent = max_concurrent
-        self._semaphore = asyncio.Semaphore(max_concurrent)
+        self._semaphore = Semaphore(max_concurrent)
 
         self.__tqdm = None
         if enable_tqdm:
@@ -151,7 +151,7 @@ class Pilmoji:
                 if support_ds_emj:
                     tasks.extend([self._fetch_emoji(eid, True) for eid in ds_emj_set])
 
-                emjios = await self._gather(*tasks)
+                emjios = await self.__gather(*tasks)
             finally:
                 client_cv.reset(token)
 
@@ -191,15 +191,11 @@ class Pilmoji:
 
             y += line_height
 
-    async def _gather(self, *tasks: Awaitable[T]) -> list[T]:
+    async def __gather(self, *tasks: Awaitable[T]) -> list[T]:
         if self.__tqdm is None:
-            return await asyncio.gather(*tasks)
+            return await gather(*tasks)
 
-        return await self.__tqdm.gather(
-            *tasks,
-            desc="Fetching Emojis",
-            colour="green",
-        )
+        return await self.__tqdm.gather(*tasks)
 
     def __repr__(self) -> str:
         return f"<Pilmoji source={self._source} cache={self._cache}>"
