@@ -81,7 +81,9 @@ class Pilmoji:
         xy: tuple[int, int],
         text: str,
         font: FontT,
+        *,
         fill: ColorT | None = None,
+        line_height: int | None = None,
     ) -> None:
         """Simplified text rendering method with Unicode emoji support.
 
@@ -103,7 +105,7 @@ class Pilmoji:
 
         x, y = xy
         draw = ImageDraw.Draw(image)
-        line_height = helper.get_font_height(font)
+        line_height = line_height or helper.get_font_height(font)
 
         # check text has emoji
         if not helper.has_emoji(text):
@@ -134,10 +136,11 @@ class Pilmoji:
         y_diff = int((line_height - font_size) / 2)
 
         # Pre-resize emojis
-        resized_emojis: dict[str, PILImage] = {}
-        for emoji, bytesio in emj_map.items():
-            if bytesio:
-                resized_emojis[emoji] = self._resize_emoji(bytesio, font_size)
+        resized_emojis = {
+            emoji: self._resize_emoji(bytesio, font_size)
+            for emoji, bytesio in emj_map.items()
+            if bytesio
+        }
 
         for line in lines:
             cur_x = x
@@ -162,7 +165,9 @@ class Pilmoji:
         xy: tuple[int, int],
         text: str,
         font: FontT,
+        *,
         fill: ColorT | None = None,
+        line_height: int | None = None,
     ) -> None:
         """Simplified text rendering method with Unicode and Discord emoji support.
 
@@ -184,7 +189,7 @@ class Pilmoji:
 
         x, y = xy
         draw = ImageDraw.Draw(image)
-        line_height = helper.get_font_height(font)
+        line_height = line_height or helper.get_font_height(font)
 
         if not helper.has_emoji(text, False):
             for line in text.splitlines():
@@ -228,13 +233,16 @@ class Pilmoji:
         y_diff = int((line_height - font_size) / 2)
 
         # Pre-resize emojis
-        resized_emojis: dict[str | int, PILImage] = {}
-        for emoji, bytesio in emj_map.items():
-            if bytesio:
-                resized_emojis[emoji] = self._resize_emoji(bytesio, font_size)
-        for eid, bytesio in ds_emj_map.items():
-            if bytesio:
-                resized_emojis[eid] = self._resize_emoji(bytesio, font_size)
+        resized_emojis: dict[str, PILImage] = {
+            emoji: self._resize_emoji(bytesio, font_size)
+            for emoji, bytesio in emj_map.items()
+            if bytesio
+        }
+        resized_discord_emojis: dict[int, PILImage] = {
+            eid: self._resize_emoji(bytesio, font_size)
+            for eid, bytesio in ds_emj_map.items()
+            if bytesio
+        }
 
         for line in lines:
             cur_x = x
@@ -246,7 +254,7 @@ class Pilmoji:
                     case NodeType.EMOJI:
                         emoji_img = resized_emojis.get(node.content)
                     case NodeType.DISCORD_EMOJI:
-                        emoji_img = resized_emojis.get(int(node.content))
+                        emoji_img = resized_discord_emojis.get(int(node.content))
 
                 # Render emoji or text
                 if emoji_img:
@@ -266,7 +274,7 @@ class Pilmoji:
             *tasks,
             desc="Fetching Emojis",
             colour="green",
-            bar_format="{l_bar}{bar}| {n_fmt}/{total_fmt}",
+            bar_format="{desc} |{bar}| {n_fmt}/{total_fmt}",
         )
 
     async def __aenter__(self):
