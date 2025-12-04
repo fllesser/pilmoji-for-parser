@@ -178,4 +178,5 @@ class EmojiCDNSource(HTTPBasedSource):
         try:
             return await self.download_streaming(url, file_path)
         except HTTPError:
+            raise
             return None
