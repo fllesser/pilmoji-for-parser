@@ -23,7 +23,7 @@ class Pilmoji:
         *,
         source: BaseSource = EmojiCDNSource(),
         cache: bool = True,
-        enable_tqdm: bool = True,
+        enable_tqdm: bool = False,
     ) -> None:
         self._cache: bool = cache
         self._source: BaseSource = source
@@ -113,7 +113,7 @@ class Pilmoji:
         line_height = line_height or helper.get_font_height(font)
 
         # Check if text has emoji
-        if not helper.has_emoji(text, not support_ds_emj):
+        if not helper.contains_emoji(text, support_ds_emj):
             for line in text.splitlines():
                 draw.text((x, y), line, font=font, fill=fill)
                 y += line_height

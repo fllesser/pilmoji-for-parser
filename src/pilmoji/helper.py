@@ -41,7 +41,7 @@ class Node(NamedTuple):
     content: str
 
 
-def has_emoji(text: str, unicode_only: bool = True) -> bool:
+def contains_emoji(text: str, support_ds_emj: bool = False) -> bool:
     """Check if a string contains any emoji characters using a fast regex pattern.
 
     Parameters
@@ -60,10 +60,7 @@ def has_emoji(text: str, unicode_only: bool = True) -> bool:
         if char in UNICODE_EMOJI_SET:
             return True
 
-    if unicode_only:
-        return False
-
-    return bool(DISCORD_EMOJI_PATTERN.search(text))
+    return support_ds_emj and bool(DISCORD_EMOJI_PATTERN.search(text))
 
 
 def to_nodes(text: str, support_ds_emj: bool = False) -> list[list[Node]]:
