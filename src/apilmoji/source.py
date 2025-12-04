@@ -4,7 +4,7 @@ from asyncio import Semaphore, gather
 from pathlib import Path
 from collections.abc import Awaitable
 
-from httpx import Limits, Timeout, Response, HTTPError, AsyncClient
+from httpx import Limits, Timeout, HTTPError, AsyncClient
 from aiofiles import open as aopen
 
 
@@ -93,95 +93,73 @@ class EmojiCDNSource:
             except ImportError:
                 pass
 
-    async def _download_streaming(
+    async def _download_emoji(
         self,
-        url: str,
-        file_path: Path,
-        client: AsyncClient | None = None,
-    ) -> BytesIO:
-        """Downloads the image from the given URL using streaming."""
-
-        async def _process_response(response: Response) -> BytesIO:
-            """Processes the response into a BytesIO buffer."""
-            response.raise_for_status()
-            buffer = BytesIO()
-
-            async with aopen(file_path, "wb") as f:
-                async for chunk in response.aiter_bytes(chunk_size=8192):
-                    buffer.write(chunk)
-                    await f.write(chunk)
-
-            buffer.seek(0)
-            return buffer
-
-        if client is not None:
-            async with client.stream("GET", url) as response:
-                return await _process_response(response)
-
-        async with AsyncClient(headers=HEADERS) as client:
-            async with client.stream("GET", url) as response:
-                return await _process_response(response)
-
-    async def get_emoji(
-        self, emoji: str, client: AsyncClient | None = None
+        emoji: str,
+        is_discord: bool,
+        client: AsyncClient,
     ) -> BytesIO | None:
+        """内部下载方法, 使用共享的client"""
+        if is_discord:
+            file_name = f"{emoji}.png"
+            file_path = self._ds_dir / file_name
+            url = f"https://cdn.discordapp.com/emojis/{file_name}"
+        else:
+            file_path = self._emj_dir / f"{emoji}.png"
+            url = f"{self.base_url}/{emoji}?style={self.style}"
+
+        # 检查缓存
+        if file_path.exists():
+            async with aopen(file_path, "rb") as f:
+                return BytesIO(await f.read())
+
+        # 下载逻辑
+        try:
+            async with client.stream("GET", url) as response:
+                if response.status_code != 200:
+                    return None
+
+                buffer = BytesIO()
+                async with aopen(file_path, "wb") as f:
+                    async for chunk in response.aiter_bytes(chunk_size=8192):
+                        buffer.write(chunk)
+                        await f.write(chunk)
+
+                buffer.seek(0)
+                return buffer
+        except HTTPError:
+            return None
+
+    async def get_emoji(self, emoji: str) -> BytesIO | None:
         """Get a single emoji image.
 
         Args:
             emoji: The emoji character to retrieve
-            client: The AsyncClient to use for downloading
 
         Returns:
             BytesIO containing the emoji image, or None if download fails
         """
-        file_path = self._emj_dir / f"{emoji}.png"
+        async with AsyncClient(headers=HEADERS) as client:
+            return await self._download_emoji(emoji, False, client)
 
-        if file_path.exists():
-            async with aopen(file_path, "rb") as f:
-                return BytesIO(await f.read())
-
-        url = f"{self.base_url}/{emoji}?style={self.style}"
-
-        try:
-            return await self._download_streaming(url, file_path, client)
-        except HTTPError:
-            return None
-
-    async def get_discord_emoji(
-        self, id: str, client: AsyncClient | None = None
-    ) -> BytesIO | None:
+    async def get_discord_emoji(self, id: str) -> BytesIO | None:
         """Get a single Discord emoji image.
 
         Args:
             id: The Discord emoji ID
-            client: The AsyncClient to use for downloading
 
         Returns:
             BytesIO containing the emoji image, or None if download fails
         """
-        file_name = f"{id}.png"
-        file_path = self._ds_dir / file_name
-
-        if file_path.exists():
-            async with aopen(file_path, "rb") as f:
-                return BytesIO(await f.read())
-
-        url = f"https://cdn.discordapp.com/emojis/{file_name}"
-
-        try:
-            return await self._download_streaming(url, file_path, client)
-        except HTTPError:
-            return None
+        async with AsyncClient(headers=HEADERS) as client:
+            return await self._download_emoji(id, True, client)
 
     async def _fetch_with_semaphore(
-        self, emoji: str, client: AsyncClient, is_discord: bool = False
+        self, emoji: str, is_discord: bool, client: AsyncClient
     ) -> BytesIO | None:
         """Fetch a single emoji with semaphore-based concurrency control."""
         async with self._semaphore:
-            if is_discord:
-                return await self.get_discord_emoji(emoji, client)
-            else:
-                return await self.get_emoji(emoji, client)
+            return await self._download_emoji(emoji, is_discord, client)
 
     async def __gather_emojis(
         self, *tasks: Awaitable[BytesIO | None]
@@ -223,11 +201,11 @@ class EmojiCDNSource:
         ) as client:
             # Create download tasks using the same list order
             tasks = [
-                self._fetch_with_semaphore(emoji, client, False) for emoji in emoji_list
+                self._fetch_with_semaphore(emoji, False, client) for emoji in emoji_list
             ]
             tasks.extend(
                 [
-                    self._fetch_with_semaphore(eid, client, True)
+                    self._fetch_with_semaphore(eid, True, client)
                     for eid in discord_emoji_list
                 ]
             )
@@ -235,9 +213,9 @@ class EmojiCDNSource:
             # Download all concurrently
             results = await self.__gather_emojis(*tasks)
 
-            # Combine all emojis into a single dict using the same list order
-            all_emojis = emoji_list + discord_emoji_list
-            return dict(zip(all_emojis, results))
+        # Combine all emojis into a single dict using the same list order
+        all_emojis = emoji_list + discord_emoji_list
+        return dict(zip(all_emojis, results))
 
     def __repr__(self) -> str:
         return f"<EmojiCDNSource style={self.style}>"
