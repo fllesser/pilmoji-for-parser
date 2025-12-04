@@ -199,7 +199,6 @@ class Pilmoji:
             *tasks,
             desc="Fetching Emojis",
             colour="green",
-            bar_format="{desc} |{bar}| {n_fmt}/{total_fmt}",
         )
 
     def __repr__(self) -> str:

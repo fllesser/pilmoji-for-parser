@@ -69,7 +69,7 @@ async def test_many_emoji(font_path, cache_dir):
     font = ImageFont.truetype(font_path, 24)
     source = EmojiCDNSource(cache_dir=cache_dir)
     pilmoji = Pilmoji(source=source)
-    image = Image.new("RGB", (800, 3000), (255, 255, 255))
-    await pilmoji.text(image, (10, 40), text.splitlines(), font, fill=(0, 0, 0))
+    image = Image.new("RGB", (1000, 3000), (255, 255, 255))
+    await pilmoji.text(image, (10, 10), text.splitlines(), font, fill=(0, 0, 0))
     assert image is not None
     image.save(cache_dir / "test_many_emoji.png")
