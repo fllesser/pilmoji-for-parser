@@ -81,8 +81,8 @@ class Pilmoji:
         xy: tuple[int, int],
         text: str,
         font: FontT,
-        *,
         fill: ColorT | None = None,
+        *,
         line_height: int | None = None,
         support_ds_emj: bool = False,
     ) -> None:
