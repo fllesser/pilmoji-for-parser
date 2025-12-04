@@ -21,7 +21,6 @@ _UNICODE_EMOJI_REGEX: Final[str] = "|".join(
 )
 _DISCORD_EMOJI_REGEX: Final[str] = r"<a?:[a-zA-Z0-9_]{1,32}:[0-9]{17,22}>"
 
-
 UNICODE_EMOJI_PATTERN: Final[re.Pattern[str]] = re.compile(_UNICODE_EMOJI_REGEX)
 DISCORD_EMOJI_PATTERN: Final[re.Pattern[str]] = re.compile(_DISCORD_EMOJI_REGEX)
 EMOJI_PATTERN: Final[re.Pattern[str]] = re.compile(
@@ -67,11 +66,11 @@ def has_emoji(text: str, unicode_only: bool = True) -> bool:
     return bool(DISCORD_EMOJI_PATTERN.search(text))
 
 
-def to_nodes(text: str, unicode_only: bool = True):
-    return [_parse_line(line, unicode_only) for line in text.splitlines()]
+def to_nodes(text: str, support_ds_emj: bool = False) -> list[list[Node]]:
+    return [_parse_line(line, support_ds_emj) for line in text.splitlines()]
 
 
-def _parse_line(line: str, unicode_only: bool = True) -> list[Node]:
+def _parse_line(line: str, support_ds_emj: bool = False) -> list[Node]:
     """Parse a line of text, identifying Unicode emojis and Discord emojis.
 
     Parameters
@@ -88,7 +87,7 @@ def _parse_line(line: str, unicode_only: bool = True) -> list[Node]:
     """
     last_end = 0
     nodes: list[Node] = []
-    pattern = UNICODE_EMOJI_PATTERN if unicode_only else EMOJI_PATTERN
+    pattern = EMOJI_PATTERN if support_ds_emj else UNICODE_EMOJI_PATTERN
 
     for match in pattern.finditer(line):
         start, end = match.span()

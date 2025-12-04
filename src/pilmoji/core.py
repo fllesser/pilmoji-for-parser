@@ -84,8 +84,9 @@ class Pilmoji:
         *,
         fill: ColorT | None = None,
         line_height: int | None = None,
+        support_ds_emj: bool = False,
     ) -> None:
-        """Simplified text rendering method with Unicode emoji support.
+        """Text rendering method with Unicode and optional Discord emoji support.
 
         Parameters
         ----------
@@ -99,6 +100,10 @@ class Pilmoji:
             The font to use
         fill: ColorT | None
             Text color, defaults to black
+        line_height: int | None
+            Line height, defaults to font height
+        support_discord_emoji: bool
+            Whether to support Discord emoji parsing, defaults to False
         """
         if not text:
             return
@@ -107,98 +112,15 @@ class Pilmoji:
         draw = ImageDraw.Draw(image)
         line_height = line_height or helper.get_font_height(font)
 
-        # check text has emoji
-        if not helper.has_emoji(text):
-            for line in text.splitlines():
-                draw.text((x, y), line, font=font, fill=fill)
-                y += line_height
-            return
-
-        # Parse text into nodes (Unicode emoji only)
-        lines = helper.to_nodes(text)
-
-        # Collect all unique Unicode emojis to download
-        emj_set = {
-            node.content
-            for line in lines
-            for node in line
-            if node.type is NodeType.EMOJI
-        }
-
-        # Download all emojis concurrently
-        emjios = await self.gather(
-            *[self._get_emoji(emoji) for emoji in emj_set],
-        )
-        emj_map = dict(zip(emj_set, emjios))
-
-        # Render each line
-        font_size = helper.get_font_size(font)
-        y_diff = int((line_height - font_size) / 2)
-
-        # Pre-resize emojis
-        resized_emojis = {
-            emoji: self._resize_emoji(bytesio, font_size)
-            for emoji, bytesio in emj_map.items()
-            if bytesio
-        }
-
-        for line in lines:
-            cur_x = x
-
-            for node in line:
-                if node.type is NodeType.EMOJI:
-                    if emoji_img := resized_emojis.get(node.content):
-                        image.paste(emoji_img, (cur_x, y + y_diff), emoji_img)
-                    else:
-                        draw.text((cur_x, y), node.content, font=font, fill=fill)
-                    cur_x += int(font_size)
-                else:
-                    # Text node
-                    draw.text((cur_x, y), node.content, font=font, fill=fill)
-                    cur_x += int(font.getlength(node.content))
-
-            y += line_height
-
-    async def text_with_ds_emj(
-        self,
-        image: PILImage,
-        xy: tuple[int, int],
-        text: str,
-        font: FontT,
-        *,
-        fill: ColorT | None = None,
-        line_height: int | None = None,
-    ) -> None:
-        """Simplified text rendering method with Unicode and Discord emoji support.
-
-        Parameters
-        ----------
-        image: PILImage
-            The image to render onto
-        xy: tuple[int, int]
-            Rendering position (x, y)
-        text: str
-            The text to render (supports single or multiple lines)
-        font: FontT
-            The font to use
-        fill: ColorT | None
-            Text color, defaults to black
-        """
-        if not text:
-            return
-
-        x, y = xy
-        draw = ImageDraw.Draw(image)
-        line_height = line_height or helper.get_font_height(font)
-
-        if not helper.has_emoji(text, False):
+        # Check if text has emoji
+        if not helper.has_emoji(text, not support_ds_emj):
             for line in text.splitlines():
                 draw.text((x, y), line, font=font, fill=fill)
                 y += line_height
             return
 
         # Parse text into nodes
-        lines = helper.to_nodes(text, False)
+        lines = helper.to_nodes(text, support_ds_emj)
 
         # Collect all unique emojis to download
         emj_set = {
@@ -207,58 +129,63 @@ class Pilmoji:
             for node in line
             if node.type is NodeType.EMOJI
         }
-        ds_emj_set = {
-            int(node.content)
-            for line in lines
-            for node in line
-            if node.type is NodeType.DISCORD_EMOJI
-        }
+
+        # Collect Discord emojis if needed
+        ds_emj_set: set[int] = set()
+        if support_ds_emj:
+            ds_emj_set = {
+                int(node.content)
+                for line in lines
+                for node in line
+                if node.type is NodeType.DISCORD_EMOJI
+            }
 
         # Download all emojis concurrently
-        emjios = await self.gather(
-            *[self._get_emoji(emoji) for emoji in emj_set],
-            *[self._get_discord_emoji(eid) for eid in ds_emj_set],
-        )
+        tasks = [self._get_emoji(emoji) for emoji in emj_set]
+        if support_ds_emj:
+            tasks.extend([self._get_discord_emoji(eid) for eid in ds_emj_set])
 
-        emj_num = len(emj_set)
-        emoji_results = emjios[:emj_num]
-        discord_results = emjios[emj_num:]
+        emjios = await self._gather(*tasks)
 
         # Build emoji mappings
-        emj_map = dict(zip(emj_set, emoji_results))
-        ds_emj_map = dict(zip(ds_emj_set, discord_results))
+        emj_num = len(emj_set)
+        emj_map = dict(zip(emj_set, emjios[:emj_num]))
+        ds_emj_map = {}
+        if support_ds_emj:
+            ds_emj_map = dict(zip(ds_emj_set, emjios[emj_num:]))
 
         # Render each line
         font_size = helper.get_font_size(font)
         y_diff = int((line_height - font_size) / 2)
 
         # Pre-resize emojis
-        resized_emojis: dict[str, PILImage] = {
+        resized_emjs = {
             emoji: self._resize_emoji(bytesio, font_size)
             for emoji, bytesio in emj_map.items()
             if bytesio
         }
-        resized_discord_emojis: dict[int, PILImage] = {
-            eid: self._resize_emoji(bytesio, font_size)
-            for eid, bytesio in ds_emj_map.items()
-            if bytesio
-        }
+        resized_ds_emjs: dict[int, PILImage] = {}
+        if support_ds_emj:
+            resized_ds_emjs = {
+                eid: self._resize_emoji(bytesio, font_size)
+                for eid, bytesio in ds_emj_map.items()
+                if bytesio
+            }
 
         for line in lines:
             cur_x = x
 
             for node in line:
-                emoji_img = None
-
-                match node.type:
-                    case NodeType.EMOJI:
-                        emoji_img = resized_emojis.get(node.content)
-                    case NodeType.DISCORD_EMOJI:
-                        emoji_img = resized_discord_emojis.get(int(node.content))
+                if node.type is NodeType.EMOJI:
+                    emj_img = resized_emjs.get(node.content)
+                elif support_ds_emj and node.type is NodeType.DISCORD_EMOJI:
+                    emj_img = resized_ds_emjs.get(int(node.content))
+                else:
+                    emj_img = None
 
                 # Render emoji or text
-                if emoji_img:
-                    image.paste(emoji_img, (cur_x, y + y_diff), emoji_img)
+                if emj_img is not None:
+                    image.paste(emj_img, (cur_x, y + y_diff), emj_img)
                     cur_x += int(font_size)
                 else:
                     draw.text((cur_x, y), node.content, font=font, fill=fill)
@@ -266,7 +193,7 @@ class Pilmoji:
 
             y += line_height
 
-    async def gather(self, *tasks: Awaitable[T]) -> list[T]:
+    async def _gather(self, *tasks: Awaitable[T]) -> list[T]:
         if self.__tqdm is None:
             return await asyncio.gather(*tasks)
 
