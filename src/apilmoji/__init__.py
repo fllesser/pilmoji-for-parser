@@ -1,19 +1,15 @@
-from .core import Pilmoji
+from . import core as Apilmoji
 from .source import (
     ELK_SH_CDN,
     MQRIO_DEV_CDN,
-    BaseSource,
     EmojiStyle,
     EmojiCDNSource,
-    HTTPBasedSource,
 )
 
 __all__ = (
     "ELK_SH_CDN",
     "MQRIO_DEV_CDN",
-    "BaseSource",
+    "Apilmoji",
     "EmojiCDNSource",
     "EmojiStyle",
-    "HTTPBasedSource",
-    "Pilmoji",
 )

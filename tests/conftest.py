@@ -23,10 +23,10 @@ def cache_dir() -> Path:
     return CACHE_DIR
 
 
-def clean_dir(path: Path):
-    if not path.exists():
+def clean_dir(cache_dir: Path):
+    if not cache_dir.exists():
         return
-    for fd in path.glob("*"):
+    for fd in cache_dir.glob("*"):
         if fd.is_dir():
             clean_dir(fd)
             fd.rmdir()
