@@ -1,33 +1,33 @@
 # Apilmoji
 
-一个高性能的异步表情符号渲染库
+A high-performance asynchronous emoji rendering library
 
-## ✨ 特性
+## ✨ Features
 
-- 🎨 **Unicode 表情符号支持** - 渲染标准 Unicode 表情符号
-- 💬 **Discord 表情符号支持** - 渲染自定义 Discord 表情符号
-- 🔄 **并发下载** - 支持并发下载表情符号，提升性能
-- 💾 **智能缓存** - 本地文件缓存，避免重复下载
-- 🎭 **多种样式** - 支持 Apple、Google、Twitter、Facebook 等样式
-- 📊 **进度显示** - 可选进度条显示下载进度
+- 🎨 **Unicode Emoji Support** - Render standard Unicode emojis
+- 💬 **Discord Emoji Support** - Render custom Discord emojis
+- 🔄 **Concurrent Downloads** - Support concurrent emoji downloads for better performance
+- 💾 **Smart Caching** - Local file caching to avoid repeated downloads
+- 🎭 **Multiple Styles** - Support for Apple, Google, Twitter, Facebook, and other styles
+- 📊 **Progress Display** - Optional progress bar for download progress
 
-## 📦 安装
+## 📦 Installation
 
-**要求:** Python 3.10 或更高版本
+**Requirements:** Python 3.10 or higher
 
 ```bash
 uv add apilmoji
 ```
 
-或从源码安装：
+Or install from source:
 
 ```bash
 uv add git+https://github.com/fllesser/apilmoji
 ```
 
-## 🚀 快速开始
+## 🚀 Quick Start
 
-### 基本用法（仅 Unicode 表情符号）
+### Basic Usage (Unicode Emojis Only)
 
 ```python
 import asyncio
@@ -37,15 +37,15 @@ from apilmoji import Apilmoji
 async def main():
     text = '''
     Hello, world! 👋
-    这里有一些表情符号：🎨 🌊 😎
-    支持多行文本！🚀 ✨
+    Here are some emojis: 🎨 🌊 😎
+    Supports multi-line text! 🚀 ✨
     '''
 
-    # 创建图像
+    # Create image
     image = Image.new('RGB', (550, 150), (255, 255, 255))
     font = ImageFont.truetype('arial.ttf', 24)
 
-    # 渲染带表情符号的文本
+    # Render text with emojis
     await Apilmoji.text(
         image,
         (10, 10),
@@ -60,13 +60,13 @@ async def main():
 asyncio.run(main())
 ```
 
-### 支持 Discord 表情符号
+### Discord Emoji Support
 
 ```python
 async def main():
     text = '''
-    Unicode 表情符号：👋 🎨 😎
-    Discord 表情符号：<:rooThink:123456789012345678>
+    Unicode emojis: 👋 🎨 😎
+    Discord emojis: <:rooThink:123456789012345678>
     '''
 
     image = Image.new('RGB', (550, 100), (255, 255, 255))
@@ -78,7 +78,7 @@ async def main():
         text.strip(),
         font,
         fill=(0, 0, 0),
-        support_ds_emj=True  # 启用 Discord 表情符号支持
+        support_ds_emj=True  # Enable Discord emoji support
     )
 
     image.save('output.png')
@@ -86,23 +86,23 @@ async def main():
 asyncio.run(main())
 ```
 
-## 🎨 表情符号样式
+## 🎨 Emoji Styles
 
-选择不同的表情符号样式：
+Choose different emoji styles:
 
 ```python
 from apilmoji import Apilmoji, EmojiCDNSource, EmojiStyle
 
-# Apple 样式（默认）
+# Apple style (default)
 source = EmojiCDNSource(style=EmojiStyle.APPLE)
 
-# Google 样式
+# Google style
 source = EmojiCDNSource(style=EmojiStyle.GOOGLE)
 
-# Twitter 样式
+# Twitter style
 source = EmojiCDNSource(style=EmojiStyle.TWITTER)
 
-# Facebook 样式
+# Facebook style
 source = EmojiCDNSource(style=EmojiStyle.FACEBOOK)
 
 await Apilmoji.text(
@@ -114,11 +114,11 @@ await Apilmoji.text(
 )
 ```
 
-## 🔧 API 参考
+## 🔧 API Reference
 
 ### `Apilmoji.text`
 
-主要的文本渲染方法。
+Main text rendering method.
 
 ```python
 await Apilmoji.text(
@@ -134,20 +134,20 @@ await Apilmoji.text(
 ) -> None
 ```
 
-**参数:**
+**Parameters:**
 
-- `image`: PIL Image 对象，用于渲染
-- `xy`: 文本位置的 (x, y) 坐标元组
-- `lines`: 要渲染的文本行（支持多行）
-- `font`: PIL Font 对象
-- `fill`: 文本颜色（默认：黑色）
-- `line_height`: 行高（默认：字体高度）
-- `support_ds_emj`: 是否支持 Discord 表情符号（默认：False）
-- `source`: 表情符号源（默认：EmojiCDNSource()）
+- `image`: PIL Image object for rendering
+- `xy`: (x, y) coordinate tuple for text position
+- `lines`: Text lines to render (supports multi-line)
+- `font`: PIL Font object
+- `fill`: Text color (default: black)
+- `line_height`: Line height (default: font height)
+- `support_ds_emj`: Whether to support Discord emojis (default: False)
+- `source`: Emoji source (default: EmojiCDNSource())
 
 ### `EmojiCDNSource`
 
-默认表情符号源，使用 [emojicdn.elk.sh](https://emojicdn.elk.sh/)。
+Default emoji source using [emojicdn.elk.sh](https://emojicdn.elk.sh/).
 
 ```python
 EmojiCDNSource(
@@ -161,60 +161,72 @@ EmojiCDNSource(
 )
 ```
 
-**参数:**
+**Parameters:**
 
-- `base_url`: CDN 基础 URL
-- `style`: 表情符号样式
-- `cache_dir`: 自定义缓存目录（默认：`~/.cache/apilmoji`）
-- `enable_discord`: 启用 Discord 表情符号支持
-- `max_concurrent`: 最大并发下载数（默认：50）
-- `enable_tqdm`: 启用进度条显示
+- `base_url`: CDN base URL
+- `style`: Emoji style
+- `cache_dir`: Custom cache directory (default: `~/.cache/apilmoji`)
+- `enable_discord`: Enable Discord emoji support
+- `max_concurrent`: Maximum concurrent downloads (default: 50)
+- `enable_tqdm`: Enable progress bar display
 
-## 📝 高级用法
+## 📝 Advanced Usage
 
-### 自定义行高和颜色
+### Custom Line Height and Color
 
 ```python
-# 自定义行高和颜色
+# Custom line height and color
 await Apilmoji.text(
     image,
     (10, 10),
-    "自定义样式 🎨",
+    "Custom styling 🎨",
     font,
-    fill=(255, 0, 0),      # 红色文本
-    line_height=40,        # 自定义行高
+    fill=(255, 0, 0),      # Red text
+    line_height=40,        # Custom line height
     support_ds_emj=True
 )
 ```
 
-### 启用进度条
+### Enable Progress Bar
 
 ```python
 from apilmoji import EmojiCDNSource
 
-# 启用进度条显示
+# Enable progress bar display
 source = EmojiCDNSource(enable_tqdm=True)
 
 await Apilmoji.text(
     image,
     (10, 10),
-    "带进度条的表情符号下载 📊",
+    "Emoji download with progress bar 📊",
     font,
     source=source
 )
 ```
 
-### 调整并发数
+### Adjust Concurrency
 
 ```python
-# 调整并发下载数
-source = EmojiCDNSource(max_concurrent=10)  # 限制为10个并发
+# Adjust concurrent download count
+source = EmojiCDNSource(max_concurrent=10)  # Limit to 10 concurrent
 
 await Apilmoji.text(
     image,
     (10, 10),
-    "限制并发下载 ⚡",
+    "Limited concurrent downloads ⚡",
     font,
     source=source
 )
 ```
+
+## 🤝 Contributing
+
+Contributions are welcome! Please feel free to submit a Pull Request.
+
+## 📄 License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+## 🐛 Issues
+
+If you encounter any issues, please report them on the [GitHub Issues](https://github.com/fllesser/apilmoji/issues) page.
