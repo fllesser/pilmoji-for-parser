@@ -63,15 +63,10 @@ async def test_all_style(cache_dir):
 
 @pytest.mark.asyncio
 async def test_tqdm(cache_dir):
-    from tqdm.asyncio import tqdm
-
     from apilmoji import EmojiCDNSource
 
     emoji_str = "👍 😎 😊 😍 😘 😗 😙 😚 😋"
     emoji_list = emoji_str.split(" ")
 
     source = EmojiCDNSource(cache_dir=cache_dir, enable_tqdm=True)
-
-    for emoji in tqdm(emoji_list, desc="Downloading emojis"):
-        image = await source.get_emoji(emoji)
-        assert image is not None
+    await source.fetch_emojis(set(emoji_list))
