@@ -1,56 +1,58 @@
-# Pilmoji for Parser
+# Apilmoji
 
-A simplified emoji renderer for [Pillow](https://github.com/python-pillow/Pillow/), Python's imaging library. This is a streamlined fork optimized for use with [nonebot-plugin-parser](https://github.com/fllesser/nonebot-plugin-parser).
+一个高性能的异步表情符号渲染库
 
-## ✨ Features
+## ✨ 特性
 
-- 🎨 **Unicode Emoji Support** - Render standard Unicode emojis
-- 💬 **Discord Emoji Support** - Render custom Discord emojis
-- 📝 **Multi-line Text** - Automatic line break handling
-- 🎭 **Multiple Emoji Styles** - Apple, Google, Twitter, Facebook
-- ⚡ **Async/Await** - Built with modern async Python
-- 💾 **Smart Caching** - Local file caching for better performance
-- 🔧 **Simple API** - Easy-to-use interface with sensible defaults
+- 🎨 **Unicode 表情符号支持** - 渲染标准 Unicode 表情符号
+- 💬 **Discord 表情符号支持** - 渲染自定义 Discord 表情符号
+- 🔄 **并发下载** - 支持并发下载表情符号，提升性能
+- 💾 **智能缓存** - 本地文件缓存，避免重复下载
+- 🎭 **多种样式** - 支持 Apple、Google、Twitter、Facebook 等样式
+- 📊 **进度显示** - 可选进度条显示下载进度
 
-## 📦 Installation
+## 📦 安装
 
-**Requirements:** Python 3.10 or higher
-
-```bash
-pip install apilmoji
-```
-
-Or install from source:
+**要求:** Python 3.10 或更高版本
 
 ```bash
-git clone https://github.com/fllesser/apilmoji.git
-cd apilmoji
-pip install .
+uv add apilmoji
 ```
 
-## 🚀 Quick Start
+或从源码安装：
 
-### Basic Usage (Unicode Emoji Only)
+```bash
+uv add git+https://github.com/fllesser/apilmoji
+```
+
+## 🚀 快速开始
+
+### 基本用法（仅 Unicode 表情符号）
 
 ```python
 import asyncio
-from pilmoji import Pilmoji
 from PIL import Image, ImageFont
+from apilmoji import Apilmoji
 
 async def main():
     text = '''
     Hello, world! 👋
-    Here are some emojis: 🎨 🌊 😎
-    Multi-line support! 🚀 ✨
+    这里有一些表情符号：🎨 🌊 😎
+    支持多行文本！🚀 ✨
     '''
 
-    # Create image
+    # 创建图像
     image = Image.new('RGB', (550, 150), (255, 255, 255))
     font = ImageFont.truetype('arial.ttf', 24)
 
-    # Render text with emojis
-    async with Pilmoji() as pilmoji:
-        await pilmoji.text(image, (10, 10), text.strip(), font, fill=(0, 0, 0))
+    # 渲染带表情符号的文本
+    await Apilmoji.text(
+        image,
+        (10, 10),
+        text.strip(),
+        font,
+        fill=(0, 0, 0)
+    )
 
     image.save('output.png')
     image.show()
@@ -58,204 +60,161 @@ async def main():
 asyncio.run(main())
 ```
 
-### With Discord Emoji Support
+### 支持 Discord 表情符号
 
 ```python
 async def main():
     text = '''
-    Unicode emoji: 👋 🎨 😎
-    Discord emoji: <:custom:123456789012345678>
+    Unicode 表情符号：👋 🎨 😎
+    Discord 表情符号：<:rooThink:123456789012345678>
     '''
 
     image = Image.new('RGB', (550, 100), (255, 255, 255))
     font = ImageFont.truetype('arial.ttf', 24)
 
-    async with Pilmoji() as pilmoji:
-        await pilmoji.text_with_discord_emoji(
-            image, (10, 10), text.strip(), font, fill=(0, 0, 0)
-        )
+    await Apilmoji.text(
+        image,
+        (10, 10),
+        text.strip(),
+        font,
+        fill=(0, 0, 0),
+        support_ds_emj=True  # 启用 Discord 表情符号支持
+    )
 
     image.save('output.png')
 
 asyncio.run(main())
 ```
 
-## 🎨 Emoji Styles
+## 🎨 表情符号样式
 
-Choose from different emoji styles:
+选择不同的表情符号样式：
 
 ```python
-from pilmoji import Pilmoji, EmojiStyle, EmojiCDNSource
+from apilmoji import Apilmoji, EmojiCDNSource, EmojiStyle
 
-# Apple style (default)
+# Apple 样式（默认）
 source = EmojiCDNSource(style=EmojiStyle.APPLE)
 
-# Google style
+# Google 样式
 source = EmojiCDNSource(style=EmojiStyle.GOOGLE)
 
-# Twitter style
+# Twitter 样式
 source = EmojiCDNSource(style=EmojiStyle.TWITTER)
 
-# Facebook style
+# Facebook 样式
 source = EmojiCDNSource(style=EmojiStyle.FACEBOOK)
 
-async with Pilmoji(source=source) as pilmoji:
-    await pilmoji.text(image, (10, 10), "Hello 👋", font)
-```
-
-## 🔧 API Reference
-
-### `Pilmoji`
-
-Main class for rendering text with emojis.
-
-**Constructor:**
-
-```python
-Pilmoji(
-    source: BaseSource = EmojiCDNSource(),
-    cache: bool = True
+await Apilmoji.text(
+    image,
+    (10, 10),
+    "Hello 👋",
+    font,
+    source=source
 )
 ```
 
-**Parameters:**
+## 🔧 API 参考
 
-- `source`: Emoji source to use (default: `EmojiCDNSource()`)
-- `cache`: Enable emoji caching (default: `True`)
+### `Apilmoji.text`
 
-**Methods:**
+主要的文本渲染方法。
 
-#### `async text(image, xy, text, font, fill=None)`
+```python
+await Apilmoji.text(
+    image: PILImage,
+    xy: tuple[int, int],
+    lines: list[str] | str,
+    font: FontT,
+    *,
+    fill: ColorT | None = None,
+    line_height: int | None = None,
+    support_ds_emj: bool = False,
+    source: EmojiCDNSource | None = None,
+) -> None
+```
 
-Render text with Unicode emoji support.
+**参数:**
 
-- `image`: PIL Image object to render onto
-- `xy`: Tuple of (x, y) coordinates for text position
-- `text`: Text string to render (supports multiple lines)
-- `font`: PIL Font object
-- `fill`: Text color (default: black)
-
-#### `async text_with_discord_emoji(image, xy, text, font, fill=None)`
-
-Render text with both Unicode and Discord emoji support.
-
-Parameters are the same as `text()`.
+- `image`: PIL Image 对象，用于渲染
+- `xy`: 文本位置的 (x, y) 坐标元组
+- `lines`: 要渲染的文本行（支持多行）
+- `font`: PIL Font 对象
+- `fill`: 文本颜色（默认：黑色）
+- `line_height`: 行高（默认：字体高度）
+- `support_ds_emj`: 是否支持 Discord 表情符号（默认：False）
+- `source`: 表情符号源（默认：EmojiCDNSource()）
 
 ### `EmojiCDNSource`
 
-Default emoji source using [emojicdn.elk.sh](https://emojicdn.elk.sh/).
-
-**Constructor:**
+默认表情符号源，使用 [emojicdn.elk.sh](https://emojicdn.elk.sh/)。
 
 ```python
 EmojiCDNSource(
+    base_url: str = "https://emojicdn.elk.sh",
     style: EmojiStyle = EmojiStyle.APPLE,
-    cache_dir: Path | None = None
+    *,
+    cache_dir: Path | None = None,
+    enable_discord: bool = False,
+    max_concurrent: int = 50,
+    enable_tqdm: bool = False,
 )
 ```
 
-**Parameters:**
+**参数:**
 
-- `style`: Emoji style to use (Apple, Google, Twitter, Facebook)
-- `cache_dir`: Custom cache directory (default: `~/.cache/pilmoji`)
+- `base_url`: CDN 基础 URL
+- `style`: 表情符号样式
+- `cache_dir`: 自定义缓存目录（默认：`~/.cache/apilmoji`）
+- `enable_discord`: 启用 Discord 表情符号支持
+- `max_concurrent`: 最大并发下载数（默认：50）
+- `enable_tqdm`: 启用进度条显示
 
-## 🔌 Custom Emoji Sources
+## 📝 高级用法
 
-Create your own emoji source by subclassing `BaseSource`:
-
-```python
-from pilmoji import BaseSource
-from io import BytesIO
-
-class CustomEmojiSource(BaseSource):
-    async def get_emoji(self, emoji: str) -> BytesIO | None:
-        # Your custom emoji fetching logic
-        pass
-
-    async def get_discord_emoji(self, id: int) -> BytesIO | None:
-        # Your custom Discord emoji fetching logic
-        pass
-
-# Use your custom source
-async with Pilmoji(source=CustomEmojiSource()) as pilmoji:
-    await pilmoji.text(image, (10, 10), "Hello 👋", font)
-```
-
-## 📝 Examples
-
-### Different Text Colors
+### 自定义行高和颜色
 
 ```python
-# Red text
-await pilmoji.text(image, (10, 10), "Red text 🔴", font, fill=(255, 0, 0))
-
-# RGB tuple
-await pilmoji.text(image, (10, 50), "Blue text 🔵", font, fill=(0, 0, 255))
-
-# RGBA tuple with transparency
-await pilmoji.text(image, (10, 90), "Semi-transparent 👻", font, fill=(0, 0, 0, 128))
+# 自定义行高和颜色
+await Apilmoji.text(
+    image,
+    (10, 10),
+    "自定义样式 🎨",
+    font,
+    fill=(255, 0, 0),      # 红色文本
+    line_height=40,        # 自定义行高
+    support_ds_emj=True
+)
 ```
 
-### Multi-line Text
+### 启用进度条
 
 ```python
-text = """Line 1 with emoji 🎨
-Line 2 with emoji 🌊
-Line 3 with emoji 😎"""
+from apilmoji import EmojiCDNSource
 
-await pilmoji.text(image, (10, 10), text, font, fill=(0, 0, 0))
+# 启用进度条显示
+source = EmojiCDNSource(enable_tqdm=True)
+
+await Apilmoji.text(
+    image,
+    (10, 10),
+    "带进度条的表情符号下载 📊",
+    font,
+    source=source
+)
 ```
 
-### Without Context Manager
+### 调整并发数
 
 ```python
-pilmoji = Pilmoji()
-await pilmoji.text(image, (10, 10), "Hello 👋", font)
-await pilmoji.aclose()  # Don't forget to close!
+# 调整并发下载数
+source = EmojiCDNSource(max_concurrent=10)  # 限制为10个并发
+
+await Apilmoji.text(
+    image,
+    (10, 10),
+    "限制并发下载 ⚡",
+    font,
+    source=source
+)
 ```
-
-## 🧪 Development
-
-### Setup
-
-```bash
-# Clone the repository
-git clone https://github.com/fllesser/apilmoji.git
-cd apilmoji
-
-# Install dependencies
-uv sync --dev
-
-# Run tests
-uv run pytest
-
-# Run linting
-uv run ruff check src/
-```
-
-### Running Tests
-
-```bash
-# Run all tests
-uv run poe test
-
-# Run with coverage
-uv run pytest --cov=src --cov-report=html
-```
-
-## 📄 License
-
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-
-## 🙏 Acknowledgments
-
-- Original [Pilmoji](https://github.com/jay3332/pilmoji) project by jay3332
-- [Pillow](https://github.com/python-pillow/Pillow/) - Python Imaging Library
-- [emojicdn.elk.sh](https://emojicdn.elk.sh/) - Emoji CDN service
-
-## 🔗 Links
-
-- **Repository:** https://github.com/fllesser/apilmoji
-- **Issues:** https://github.com/fllesser/apilmoji/issues
-- **Releases:** https://github.com/fllesser/apilmoji/releases
-- **Related Project:** [nonebot-plugin-parser](https://github.com/fllesser/nonebot-plugin-parser)
