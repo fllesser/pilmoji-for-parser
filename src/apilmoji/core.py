@@ -28,7 +28,6 @@ async def _aresize_emoji(
     emoji: str, path: Path, size: float
 ) -> tuple[str, PILImage | None]:
     try:
-        # 在线程中执行 CPU 密集型操作
         img = await asyncio.to_thread(_resize_emoji, path, size)
         return emoji, img
     except Exception:
