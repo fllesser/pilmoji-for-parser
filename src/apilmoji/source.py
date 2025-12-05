@@ -96,12 +96,6 @@ class EmojiCDNSource:
         """获取表情路径"""
         return (self._ds_dir if is_discord else self._emj_dir) / f"{emoji}.png"
 
-    def _build_emoji_url(self, emoji: str, is_discord: bool = False) -> str:
-        """构建表情URL"""
-        if is_discord:
-            return f"https://cdn.discordapp.com/emojis/{emoji}.png"
-        return f"{self.base_url}/{emoji}?style={self.style}"
-
     async def _download_emoji(
         self,
         emoji: str,
@@ -252,6 +246,3 @@ class EmojiCDNSource:
         # Combine all emojis into a single dict using the same list order
         emoji_map.update(zip(emoji_list + discord_emoji_list, download_results))
         return emoji_map
-
-    def __repr__(self) -> str:
-        return f"<EmojiCDNSource style={self.style}>"
