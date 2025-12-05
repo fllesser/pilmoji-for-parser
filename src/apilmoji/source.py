@@ -63,11 +63,12 @@ class EmojiCDNSource:
         *,
         cache_dir: Path | None = None,
         enable_discord: bool = False,
-        max_concurrent: int = 50,
         enable_tqdm: bool = False,
+        max_concurrent: int = 50,
     ) -> None:
         self.base_url = base_url
         self.style = str(style)
+
         self._max_concurrent = max_concurrent
         self._semaphore = Semaphore(max_concurrent)
 
