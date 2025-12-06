@@ -70,3 +70,18 @@ async def test_tqdm(cache_dir):
 
     source = EmojiCDNSource(cache_dir=cache_dir, enable_tqdm=True)
     await source.fetch_emojis(set(emoji_list))
+
+
+@pytest.mark.asyncio
+async def test_fetch_emojis(cache_dir):
+    from apilmoji import EmojiCDNSource
+
+    emoji_set = {"👍", "😎", "😊", "😍", "😘", "😗", "😙", "😚", "😋"}
+    discord_emoji_set = {"596576798351949847"}
+
+    count = len(emoji_set) + len(discord_emoji_set)
+    source = EmojiCDNSource(cache_dir=cache_dir, enable_tqdm=True, enable_discord=True)
+    first_result = await source.fetch_emojis(emoji_set, discord_emoji_set)
+    assert len(first_result) == count
+    second_result = await source.fetch_emojis(emoji_set, discord_emoji_set)
+    assert len(second_result) == count
