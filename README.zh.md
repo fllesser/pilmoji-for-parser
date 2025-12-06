@@ -41,28 +41,24 @@ import asyncio
 from PIL import Image, ImageFont
 from apilmoji import Apilmoji
 
+
 async def main():
-    text = '''
+    text = """
     Hello, world! 👋
     这里有一些表情符号：🎨 🌊 😎
     支持多行文本！🚀 ✨
-    '''
+    """
 
     # 创建图像
-    image = Image.new('RGB', (550, 150), (255, 255, 255))
-    font = ImageFont.truetype('arial.ttf', 24)
+    image = Image.new("RGB", (550, 150), (255, 255, 255))
+    font = ImageFont.truetype("arial.ttf", 24)
 
     # 渲染带表情符号的文本
-    await Apilmoji.text(
-        image,
-        (10, 10),
-        text.strip(),
-        font,
-        fill=(0, 0, 0)
-    )
+    await Apilmoji.text(image, (10, 10), text.strip(), font, fill=(0, 0, 0))
 
-    image.save('output.png')
+    image.save("output.png")
     image.show()
+
 
 asyncio.run(main())
 ```
@@ -70,26 +66,30 @@ asyncio.run(main())
 ### 支持 Discord 表情符号
 
 ```python
+import asyncio
+from PIL import Image, ImageFont
+from apilmoji import Apilmoji, EmojiCDNSource
+
 async def main():
-    text = '''
+    text = """
     Unicode emojis: 👋 🎨 😎
     Discord emojis: <:rooThink:123456789012345678>
-    '''
+    """
 
-    image = Image.new('RGB', (550, 100), (255, 255, 255))
-    font = ImageFont.truetype('arial.ttf', 24)
+    image = Image.new("RGB", (550, 100), (255, 255, 255))
+    font = ImageFont.truetype("arial.ttf", 24)
     source = EmojiCDNSource(enable_discord=True)
     await Apilmoji.text(
         image,
         (10, 40),
-        COMPLEX_TEXT,
+        text,
         font,
         fill=(0, 0, 0),
         support_ds_emj=True,
         source=source,
     )
 
-    image.save('output.png')
+    image.save("output.png")
 
 asyncio.run(main())
 ```
