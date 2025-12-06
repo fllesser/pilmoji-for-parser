@@ -74,18 +74,19 @@ emoji_texts = """
 async def test_many_emoji(font_path, cache_dir):
     from PIL import Image, ImageFont
 
-    from apilmoji import Apilmoji, EmojiCDNSource
+    from apilmoji import Apilmoji, EmojiStyle, EmojiCDNSource
 
     font = ImageFont.truetype(font_path, 24)
-    source = EmojiCDNSource(cache_dir=cache_dir, enable_tqdm=True)
-    image = Image.new("RGB", (1050, 2100), (255, 248, 220))  # 纸黄背景
-    await Apilmoji.text(
-        image,
-        (10, 10),
-        emoji_texts,
-        font,
-        fill=(0, 0, 0),
-        source=source,
+    source = EmojiCDNSource(
+        cache_dir=cache_dir, style=EmojiStyle.FACEBOOK, enable_tqdm=True
     )
-    assert image is not None
-    image.save(cache_dir / "test_many_emoji.png")
+    with Image.new("RGB", (1050, 2100), (255, 248, 220)) as image:  # 纸黄背景
+        await Apilmoji.text(
+            image,
+            (10, 10),
+            emoji_texts,
+            font,
+            fill=(0, 0, 0),
+            source=source,
+        )
+        image.save(cache_dir / "test_many_emoji.png")
