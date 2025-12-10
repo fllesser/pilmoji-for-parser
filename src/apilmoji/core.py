@@ -73,7 +73,7 @@ async def text(
         for node in nodes:
             if node.type is NodeType.EMOJI:
                 emj_set.add(node.content)
-            elif node.type is NodeType.DISCORD_EMOJI:
+            elif node.type is NodeType.DSEMOJI:
                 ds_emj_set.add(node.content)
 
     # Download all emojis concurrently using source
@@ -99,7 +99,7 @@ async def text(
         cur_x = x
 
         for node in line:
-            if node.type is NodeType.EMOJI or node.type is NodeType.DISCORD_EMOJI:
+            if node.type is NodeType.EMOJI or node.type is NodeType.DSEMOJI:
                 emj_img = resized_emj_map.get(node.content)
             else:
                 emj_img = None

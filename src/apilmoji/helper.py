@@ -14,18 +14,13 @@ _UNICODE_EMOJI_REGEX: Final[str] = "|".join(
     map(re.escape, sorted(UNICODE_EMOJI_SET, key=len, reverse=True))
 )
 _DISCORD_EMOJI_REGEX: Final[str] = r"<a?:[a-zA-Z0-9_]{1,32}:[0-9]{17,22}>"
-
-UNICODE_EMOJI_PATTERN: Final[re.Pattern[str]] = re.compile(_UNICODE_EMOJI_REGEX)
 DISCORD_EMOJI_PATTERN: Final[re.Pattern[str]] = re.compile(_DISCORD_EMOJI_REGEX)
-EMOJI_PATTERN: Final[re.Pattern[str]] = re.compile(
-    rf"({_UNICODE_EMOJI_REGEX}|{_DISCORD_EMOJI_REGEX})"
-)
 
 
 class NodeType(Enum):
     TEXT = 0
     EMOJI = 1
-    DISCORD_EMOJI = 2
+    DSEMOJI = 2
 
 
 class Node(NamedTuple):
@@ -78,27 +73,32 @@ def _parse_line(line: str, support_ds_emj: bool = False) -> list[Node]:
     """
     last_end = 0
     nodes: list[Node] = []
-    pattern = EMOJI_PATTERN if support_ds_emj else UNICODE_EMOJI_PATTERN
+    if support_ds_emj:
+        for match in DISCORD_EMOJI_PATTERN.finditer(line):
+            start, end = match.span()
 
-    for match in pattern.finditer(line):
-        start, end = match.span()
+            # Add text before the emoji
+            if start > last_end:
+                nodes.append(Node(NodeType.TEXT, line[last_end:start]))
 
-        # Add text before the emoji
-        if start > last_end:
-            nodes.append(Node(NodeType.TEXT, line[last_end:start]))
+            # Add emoji node
+            emoji_text = match.group()
+            if len(emoji_text) > 18:  # Discord emoji
+                emoji_id = emoji_text.split(":")[-1][:-1]
+                nodes.append(Node(NodeType.DSEMOJI, emoji_id))
+            else:  # Unicode emoji
+                nodes.append(Node(NodeType.EMOJI, emoji_text))
 
-        # Add emoji node
-        emoji_text = match.group()
-        if len(emoji_text) > 18:  # Discord emoji
-            emoji_id = emoji_text.split(":")[-1][:-1]
-            nodes.append(Node(NodeType.DISCORD_EMOJI, emoji_id))
-        else:  # Unicode emoji
-            nodes.append(Node(NodeType.EMOJI, emoji_text))
+            last_end = end
 
-        last_end = end
-
-    # Add remaining text after the last emoji
-    if last_end < len(line):
-        nodes.append(Node(NodeType.TEXT, line[last_end:]))
+        # Add remaining text after the last emoji
+        if last_end < len(line):
+            nodes.append(Node(NodeType.TEXT, line[last_end:]))
+    else:
+        for char in line:
+            if char in UNICODE_EMOJI_SET:
+                nodes.append(Node(NodeType.EMOJI, char))
+            else:
+                nodes.append(Node(NodeType.TEXT, char))
 
     return nodes

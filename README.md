@@ -9,8 +9,6 @@ An asynchronous emoji rendering Extension for PIL
 [![pre-commit](https://results.pre-commit.ci/badge/github/fllesser/apilmoji/main.svg)](https://results.pre-commit.ci/latest/github/fllesser/apilmoji/main)
 [![codecov](https://codecov.io/gh/fllesser/apilmoji/graph/badge.svg?token=VCS8IHSO7U)](https://codecov.io/gh/fllesser/apilmoji)
 
-</div>
-
 ## ✨ Features
 
 - 🎨 **Unicode Emoji Support** - Render standard Unicode emojis
