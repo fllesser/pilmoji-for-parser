@@ -1,6 +1,14 @@
 import pytest
 
-COMPLEX_TEXT = [
+UNICODE_TEXT = [
+    "Hello World! 👋",
+    "This is a complex test text with multiple lines",
+    "We have standard emojis: 😂, 🚀, 🐍, 💻.",
+    "And some more: 🌟✨🔥💯.",
+    "Even some text in between: A B C 1 2 3.",
+]
+
+DISCORD_TEXT = [
     "Hello World! 👋",
     "This is a complex test text with multiple lines",
     "We have standard emojis: 😂, 🚀, 🐍, 💻.",
@@ -43,7 +51,7 @@ async def test_text(font_path, cache_dir):
         await Apilmoji.text(
             image,
             (10, 40),
-            COMPLEX_TEXT,
+            UNICODE_TEXT,
             font,
             fill=(0, 0, 0),
             source=source,
@@ -60,22 +68,20 @@ async def test_text_with_discord_emoji(font_path, cache_dir):
     font = ImageFont.truetype(font_path, 24)
     source = EmojiCDNSource(cache_dir=cache_dir)
     with Image.new("RGB", (600, 300), (255, 255, 255)) as image:
-        await Apilmoji.text(
+        await Apilmoji.text_with_discord(
             image,
             (10, 40),
-            COMPLEX_TEXT,
+            DISCORD_TEXT,
             font,
             fill=(0, 0, 0),
-            support_ds_emj=True,
             source=source,
         )
-        await Apilmoji.text(
+        await Apilmoji.text_with_discord(
             image,
             (10, 10),
             ["<:rooThink:596576798351949847>"],
             font,
             fill=(0, 0, 0),
-            support_ds_emj=True,
             source=source,
         )
         image.save(cache_dir / "text_with_ds_emj.png")
@@ -90,27 +96,19 @@ async def test_edge_case(font_path, cache_dir):
     font = ImageFont.truetype(font_path, 24)
     source = EmojiCDNSource(cache_dir=cache_dir)
     with Image.new("RGB", (300, 200), (255, 255, 255)) as image:
-        await Apilmoji.text(image, (10, 10), [""], font, fill=(0, 0, 0), source=source)
-        await Apilmoji.text(
-            image, (10, 40), "Hello World!", font, fill=(0, 0, 0), source=source
+        await Apilmoji.text(image, (10, 10), [""], font, source=source)
+        await Apilmoji.text(image, (10, 40), "Hello World!", font, source=source)
+        await Apilmoji.text(image, (10, 70), "", font, source=source)
+        await Apilmoji.text(image, (10, 100), "Hello World!", font, source=source)
+    with Image.new("RGB", (300, 200), (255, 255, 255)) as image:
+        await Apilmoji.text_with_discord(image, (10, 10), [""], font, source=source)
+        await Apilmoji.text_with_discord(
+            image, (10, 40), "Hello World!", font, source=source
         )
-        await Apilmoji.text(
-            image,
-            (10, 70),
-            "",
-            font,
-            fill=(0, 0, 0),
-            source=source,
+        await Apilmoji.text_with_discord(image, (10, 70), "", font, source=source)
+        await Apilmoji.text_with_discord(
+            image, (10, 100), "Hello World!", font, source=source
         )
-        await Apilmoji.text(
-            image,
-            (10, 100),
-            "Hello World!",
-            font,
-            fill=(0, 0, 0),
-            source=source,
-        )
-        image.save(cache_dir / "text_with_edge_case.png")
 
 
 @pytest.mark.asyncio
@@ -124,13 +122,12 @@ async def test_text_with_transposed_font(font_path, cache_dir):
     font = ImageFont.TransposedFont(font, Image.Transpose.ROTATE_180)
     source = EmojiCDNSource(cache_dir=cache_dir)
     with Image.new("RGB", (600, 300), (255, 255, 255)) as image:
-        await Apilmoji.text(
+        await Apilmoji.text_with_discord(
             image,
             (10, 40),
-            COMPLEX_TEXT,
+            DISCORD_TEXT,
             font,
             fill=(0, 0, 0),
-            support_ds_emj=True,
             source=source,
         )
         image.save(cache_dir / "text_with_transposed_font.png")
