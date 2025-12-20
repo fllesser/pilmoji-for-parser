@@ -96,27 +96,19 @@ async def test_edge_case(font_path, cache_dir):
     font = ImageFont.truetype(font_path, 24)
     source = EmojiCDNSource(cache_dir=cache_dir)
     with Image.new("RGB", (300, 200), (255, 255, 255)) as image:
-        await Apilmoji.text(image, (10, 10), [""], font, fill=(0, 0, 0), source=source)
-        await Apilmoji.text(
-            image, (10, 40), "Hello World!", font, fill=(0, 0, 0), source=source
+        await Apilmoji.text(image, (10, 10), [""], font, source=source)
+        await Apilmoji.text(image, (10, 40), "Hello World!", font, source=source)
+        await Apilmoji.text(image, (10, 70), "", font, source=source)
+        await Apilmoji.text(image, (10, 100), "Hello World!", font, source=source)
+    with Image.new("RGB", (300, 200), (255, 255, 255)) as image:
+        await Apilmoji.text_with_discord(image, (10, 10), [""], font, source=source)
+        await Apilmoji.text_with_discord(
+            image, (10, 40), "Hello World!", font, source=source
         )
-        await Apilmoji.text(
-            image,
-            (10, 70),
-            "",
-            font,
-            fill=(0, 0, 0),
-            source=source,
+        await Apilmoji.text_with_discord(image, (10, 70), "", font, source=source)
+        await Apilmoji.text_with_discord(
+            image, (10, 100), "Hello World!", font, source=source
         )
-        await Apilmoji.text(
-            image,
-            (10, 100),
-            "Hello World!",
-            font,
-            fill=(0, 0, 0),
-            source=source,
-        )
-        image.save(cache_dir / "text_with_edge_case.png")
 
 
 @pytest.mark.asyncio
